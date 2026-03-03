@@ -1,0 +1,106 @@
+<?xml version='1.0' standalone='yes'?>
+<!DOCTYPE PLUGIN [
+<!ENTITY name        "packmaster">
+<!ENTITY author      "OPUS &amp; Dino (w0lf69)">
+<!ENTITY version     "2026.03.03">
+<!ENTITY pluginURL   "https://raw.githubusercontent.com/w0lf69/packmaster/main/packmaster.plg">
+<!ENTITY support     "https://github.com/w0lf69/packmaster">
+<!ENTITY project     "https://github.com/w0lf69/packmaster">
+<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.03.03/packmaster-2026.03.03.txz">
+<!ENTITY txzSHA256   "a39ea1e5530f1cab8ab244d0cd009957c2ba0cf976a2b0c3ca298a3b6e14b626">
+<!ENTITY pluginLOC   "/boot/config/plugins/&name;">
+<!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
+]>
+
+<PLUGIN name="&name;" author="&author;" version="&version;"
+    pluginURL="&pluginURL;"
+    support="&support;"
+    project="&project;"
+    icon="icon.png"
+    min="6.12.0"
+    launch="Docker/PackMaster">
+
+<CHANGES>
+### 2026.03.03
+- Native Docker Compose management for Unraid
+- Modern React dashboard with real-time stack monitoring
+- Watchtower integration: update detection, per-image digest comparison, one-click updates
+- CodeMirror 6 YAML editor: syntax highlighting, search, code folding, undo/redo
+- CodeMirror .env editor: custom syntax highlighting for environment files
+- Live log streaming (SSE) with per-container filtering and pause/resume
+- Stack discovery: auto-scan directories, bulk registration
+- Confirmation dialogs for destructive actions
+- Loading spinners with per-action tracking
+- Toast notifications on all operations
+- Settings page with configurable scan directories
+- Supports compose.yaml, compose.yml, docker-compose.yaml, docker-compose.yml
+- Works with GHCR, DockerHub, and private registries
+- Built by OPUS and Dino — Wolf Enterprises
+</CHANGES>
+
+<!-- Pre-install: clean old package versions -->
+<FILE Run="/bin/bash">
+<INLINE>
+rm -f /boot/config/plugins/packmaster/packmaster-*.txz
+mkdir -p /boot/config/plugins/packmaster
+echo "PackMaster: preparing installation..."
+</INLINE>
+</FILE>
+
+<!-- Download and install package -->
+<FILE Name="/boot/config/plugins/packmaster/packmaster-&version;.txz" Run="upgradepkg --install-new">
+<URL>&txzURL;</URL>
+<SHA256>&txzSHA256;</SHA256>
+</FILE>
+
+<!-- Post-install: set permissions -->
+<FILE Run="/bin/bash">
+<INLINE>
+# Set permissions
+chmod 644 &emhttpLOC;/*.php 2>/dev/null || true
+chmod 644 &emhttpLOC;/includes/*.php 2>/dev/null || true
+chmod 644 &emhttpLOC;/*.page 2>/dev/null || true
+chmod 644 &emhttpLOC;/*.png 2>/dev/null || true
+chmod 644 &emhttpLOC;/*.cfg 2>/dev/null || true
+
+# Ensure docker compose CLI plugin is executable (if bundled)
+if [[ -f /usr/local/lib/docker/cli-plugins/docker-compose ]]; then
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+fi
+
+# Create default registry if first install
+if [[ ! -f &pluginLOC;/registry.json ]]; then
+    echo '{"stacks":[],"scan_dirs":["/mnt/user/appdata/dockge/stacks"]}' > &pluginLOC;/registry.json
+fi
+
+echo ""
+echo "-----------------------------------------------------------"
+echo " PackMaster v&version; installed successfully."
+echo " Access at: Docker > PackMaster"
+echo " Settings at: Docker > PackMaster > Settings"
+echo "-----------------------------------------------------------"
+echo ""
+</INLINE>
+</FILE>
+
+<!-- Removal script -->
+<FILE Run="/bin/bash" Method="remove">
+<INLINE>
+# Remove package
+removepkg packmaster-&version; 2>/dev/null || true
+
+# Clean temp files
+rm -f /tmp/packmaster-debug.log
+rm -f /tmp/packmaster-updates.json
+
+# Preserve user data on flash
+echo ""
+echo "PackMaster removed."
+echo "Registry preserved at: &pluginLOC;/registry.json"
+echo "Config preserved at:   &pluginLOC;/packmaster.cfg"
+echo "To fully remove, delete: &pluginLOC;/"
+echo ""
+</INLINE>
+</FILE>
+
+</PLUGIN>

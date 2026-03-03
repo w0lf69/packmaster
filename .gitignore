@@ -3,7 +3,8 @@ dist/
 build/
 .cache/
 *.txz
-*.plg
+plugin/*.plg.bak
+# packmaster.plg at root is the install URL — must be tracked
 frontend/node_modules/
 plugin/src/usr/local/emhttp/plugins/packmaster/app/
 .github/
