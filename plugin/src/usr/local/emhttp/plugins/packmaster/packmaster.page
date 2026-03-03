@@ -1,6 +1,6 @@
 Menu="Docker"
 Title="PackMaster"
-Icon="icon.png"
+Icon="cubes"
 Type="php"
 ---
 <?php

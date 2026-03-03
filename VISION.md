@@ -33,7 +33,7 @@ The Unraid community has been asking for native Docker Compose management since 
 | Update notifications | No | No | No | Yes (Watchtower) |
 | Auto-update integration | No | No | No | Yes (Watchtower) |
 | docker run converter | No | Yes | No | Phase 3 |
-| .env file management | No | Plaintext only | No | Phase 3 |
+| .env file management | No | Plaintext only | No | Yes (CodeMirror) |
 | Unraid UI integration | Partial | None | Iframe | Iframe |
 | Reliable auto-start | Yes | Broken on Unraid | N/A (native) | N/A (native) |
 | GHCR private registry | Manual | Bind-mount token | Native (/root/.docker) | Native |
@@ -45,14 +45,14 @@ The Unraid community has been asking for native Docker Compose management since 
 ## Release Phases
 
 ### V1 — Foundation (DONE)
-What shipped today. Functional compose management in Unraid's native UI.
+Functional compose management in Unraid's native UI.
 
-- PHP API: 13 endpoints (stacks, stack detail, up/down/restart/pull/update, logs SSE, compose read/write, register/unregister, discover, registries)
+- PHP API: 19 endpoints (13 core + 4 Watchtower + 2 env)
 - React SPA: Dashboard grid, stack cards with status, stack detail with container list, compose editor with Ctrl+S and backup-on-save, live log viewer with pause/filter, stack discovery with bulk register
 - Unraid integration: .page in Docker menu, .plg installer, CSRF token handling, flash-persistent registry
 - Build pipeline: Vite build on Archy, .txz packaging, .plg generation with SHA256
 
-### V2 — The Differentiator (NEXT)
+### V2 — The Differentiator (DONE)
 What makes PackMaster worth switching to. The features nobody else has.
 
 #### Watchtower Integration (Optional)
@@ -98,19 +98,21 @@ Replace textarea with CodeMirror 6 + `@codemirror/lang-yaml`:
 - Search/replace (Ctrl+F)
 - Same Ctrl+S save, same backup-on-save
 
+#### .env File Editor
+CodeMirror-powered .env editor with custom StreamLanguage syntax highlighting (blue keys, green strings, gray comments). Backup on save. Conditional button — only shows when .env exists. Creates new .env files.
+
 #### UI Polish
-- Stack sorting (by name, status, update available)
-- Search/filter stacks on dashboard
-- Confirmation dialogs for destructive actions (down, unregister)
-- Toast notifications for action results (success/failure)
-- Loading states on action buttons (spinner while pulling)
-- Error boundary with friendly message
+- Stack sorting (by name, status, update available) ✓
+- Search/filter stacks on dashboard ✓
+- Confirmation dialogs for destructive actions (stop, unregister) ✓
+- Toast notifications for action results (success/failure) ✓
+- Loading spinners on action buttons (per-action tracking) ✓
+- Error boundary with friendly message ✓
 
 ### V3 — Community Features (FUTURE)
 After public release feedback.
 
 - `docker run` to `compose.yaml` converter (Dockge's crowd-pleaser)
-- `.env` file editor alongside compose.yaml (with secrets masking)
 - Stack templates (one-click deploy common stacks)
 - Stack health monitoring (restart policies, healthcheck status)
 - Export/import stack configurations
@@ -139,7 +141,7 @@ Not every Unraid user runs Watchtower. PackMaster must work perfectly without it
 
 ## Public Release Checklist
 
-- [ ] V2 features complete (Watchtower + CodeMirror + polish)
+- [x] V2 features complete (Watchtower + CodeMirror + .env + polish)
 - [ ] Dino daily-drives for 1 week minimum
 - [ ] Plugin icon designed
 - [ ] GitHub repo: README with screenshots, install instructions, feature list

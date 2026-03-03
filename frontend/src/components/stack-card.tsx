@@ -1,5 +1,7 @@
+import { useState } from "react";
 import type { Stack, StackUpdateResult } from "../lib/types.ts";
 import { useStackAction } from "../lib/hooks.ts";
+import { ConfirmDialog } from "./confirm-dialog.tsx";
 
 const statusColors = {
   running: "bg-emerald-500",
@@ -28,8 +30,19 @@ export function StackCard({
 }) {
   const action = useStackAction(onActionComplete);
   const busy = action.isPending;
+  const activeAction = busy ? action.variables?.action : null;
+  const [confirmStop, setConfirmStop] = useState(false);
 
   return (
+    <>
+    <ConfirmDialog
+      open={confirmStop}
+      title={`Stop ${stack.name}?`}
+      message="All containers in this stack will be stopped and removed."
+      confirmLabel="Stop"
+      onConfirm={() => { setConfirmStop(false); action.mutate({ action: "down", name: stack.name }); }}
+      onCancel={() => setConfirmStop(false)}
+    />
     <div
       onClick={onSelect}
       className="bg-slate-800 border border-slate-700/50 rounded-lg p-4 cursor-pointer hover:border-slate-600 transition-colors relative"
@@ -63,6 +76,7 @@ export function StackCard({
         {stack.status === "stopped" ? (
           <ActionBtn
             label="Start"
+            loading={activeAction === "up"}
             disabled={busy}
             onClick={() => action.mutate({ action: "up", name: stack.name })}
             className="bg-emerald-600 hover:bg-emerald-500"
@@ -71,36 +85,42 @@ export function StackCard({
           <>
             <ActionBtn
               label="Restart"
+              loading={activeAction === "restart"}
               disabled={busy}
               onClick={() => action.mutate({ action: "restart", name: stack.name })}
               className="bg-slate-600 hover:bg-slate-500"
             />
             <ActionBtn
               label="Stop"
+              loading={activeAction === "down"}
               disabled={busy}
-              onClick={() => action.mutate({ action: "down", name: stack.name })}
+              onClick={() => setConfirmStop(true)}
               className="bg-red-600/80 hover:bg-red-500"
             />
           </>
         )}
         <ActionBtn
-          label={busy ? "..." : "Update"}
+          label="Update"
+          loading={activeAction === "update"}
           disabled={busy}
           onClick={() => action.mutate({ action: "update", name: stack.name })}
           className="bg-blue-600 hover:bg-blue-500"
         />
       </div>
     </div>
+    </>
   );
 }
 
 function ActionBtn({
   label,
+  loading,
   onClick,
   disabled,
   className,
 }: {
   label: string;
+  loading?: boolean;
   onClick: () => void;
   disabled: boolean;
   className: string;
@@ -109,9 +129,19 @@ function ActionBtn({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`px-3 py-1 text-xs font-medium text-white rounded transition-colors disabled:opacity-50 ${className}`}
+      className={`px-3 py-1 text-xs font-medium text-white rounded transition-colors disabled:opacity-50 flex items-center gap-1.5 ${className}`}
     >
+      {loading && <Spinner />}
       {label}
     </button>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
   );
 }

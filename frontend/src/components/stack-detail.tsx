@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { useStack, useStackAction, useUnregisterStack, useCheckStackUpdates, useUpdateCache } from "../lib/hooks.ts";
 import type { Container, ImageUpdate } from "../lib/types.ts";
+import { ConfirmDialog } from "./confirm-dialog.tsx";
 
 const stateColors: Record<string, string> = {
   running: "text-emerald-400",
@@ -32,6 +34,9 @@ export function StackDetail({
   const checkUpdates = useCheckStackUpdates();
   const updateCache = useUpdateCache();
   const busy = action.isPending;
+  const activeAction = busy ? action.variables?.action : null;
+  const [confirmStop, setConfirmStop] = useState(false);
+  const [confirmUnregister, setConfirmUnregister] = useState(false);
 
   // Get cached update info for this stack
   const cachedStacks = updateCache.data?.stacks ?? {};
@@ -76,11 +81,11 @@ export function StackDetail({
           <p className="text-sm text-slate-500 mt-1 font-mono">{data.path}</p>
         </div>
         <div className="flex gap-2">
-          <ActionBtn label="Start" disabled={busy} onClick={() => action.mutate({ action: "up", name })} className="bg-emerald-600 hover:bg-emerald-500" />
-          <ActionBtn label="Restart" disabled={busy} onClick={() => action.mutate({ action: "restart", name })} className="bg-slate-600 hover:bg-slate-500" />
-          <ActionBtn label="Pull" disabled={busy} onClick={() => action.mutate({ action: "pull", name })} className="bg-indigo-600 hover:bg-indigo-500" />
-          <ActionBtn label="Update" disabled={busy} onClick={() => action.mutate({ action: "update", name })} className="bg-blue-600 hover:bg-blue-500" />
-          <ActionBtn label="Stop" disabled={busy} onClick={() => action.mutate({ action: "down", name })} className="bg-red-600/80 hover:bg-red-500" />
+          <ActionBtn label="Start" loading={activeAction === "up"} disabled={busy} onClick={() => action.mutate({ action: "up", name })} className="bg-emerald-600 hover:bg-emerald-500" />
+          <ActionBtn label="Restart" loading={activeAction === "restart"} disabled={busy} onClick={() => action.mutate({ action: "restart", name })} className="bg-slate-600 hover:bg-slate-500" />
+          <ActionBtn label="Pull" loading={activeAction === "pull"} disabled={busy} onClick={() => action.mutate({ action: "pull", name })} className="bg-indigo-600 hover:bg-indigo-500" />
+          <ActionBtn label="Update" loading={activeAction === "update"} disabled={busy} onClick={() => action.mutate({ action: "update", name })} className="bg-blue-600 hover:bg-blue-500" />
+          <ActionBtn label="Stop" loading={activeAction === "down"} disabled={busy} onClick={() => setConfirmStop(true)} className="bg-red-600/80 hover:bg-red-500" />
         </div>
       </div>
 
@@ -105,11 +110,7 @@ export function StackDetail({
           {checkUpdates.isPending ? "Checking..." : "Check for Updates"}
         </button>
         <button
-          onClick={() => {
-            if (confirm(`Unregister "${name}" from PackMaster? (Containers won't be affected)`)) {
-              unregister.mutate(name, { onSuccess: onBack });
-            }
-          }}
+          onClick={() => setConfirmUnregister(true)}
           className="px-4 py-2 text-sm text-red-400 bg-slate-800 border border-slate-700 rounded hover:border-red-500/50 transition-colors ml-auto"
         >
           Unregister
@@ -157,6 +158,23 @@ export function StackDetail({
           ))}
         </div>
       )}
+      {/* Confirmation dialogs */}
+      <ConfirmDialog
+        open={confirmStop}
+        title={`Stop ${name}?`}
+        message="All containers in this stack will be stopped and removed."
+        confirmLabel="Stop"
+        onConfirm={() => { setConfirmStop(false); action.mutate({ action: "down", name }); }}
+        onCancel={() => setConfirmStop(false)}
+      />
+      <ConfirmDialog
+        open={confirmUnregister}
+        title={`Unregister ${name}?`}
+        message="This removes the stack from PackMaster. Containers won't be affected."
+        confirmLabel="Unregister"
+        onConfirm={() => { setConfirmUnregister(false); unregister.mutate(name, { onSuccess: onBack }); }}
+        onCancel={() => setConfirmUnregister(false)}
+      />
     </div>
   );
 }
@@ -197,11 +215,21 @@ function ContainerRow({ container: c, updateInfo }: { container: Container; upda
   );
 }
 
-function ActionBtn({ label, onClick, disabled, className }: { label: string; onClick: () => void; disabled: boolean; className: string }) {
+function ActionBtn({ label, loading, onClick, disabled, className }: { label: string; loading?: boolean; onClick: () => void; disabled: boolean; className: string }) {
   return (
-    <button onClick={onClick} disabled={disabled} className={`px-3 py-1.5 text-sm font-medium text-white rounded transition-colors disabled:opacity-50 ${className}`}>
+    <button onClick={onClick} disabled={disabled} className={`px-3 py-1.5 text-sm font-medium text-white rounded transition-colors disabled:opacity-50 flex items-center gap-1.5 ${className}`}>
+      {loading && <Spinner />}
       {label}
     </button>
+  );
+}
+
+function Spinner() {
+  return (
+    <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
   );
 }
 

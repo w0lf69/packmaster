@@ -1,7 +1,7 @@
 <?xml version='1.0' standalone='yes'?>
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "packmaster">
-<!ENTITY author      "OPUS (w0lf69)">
+<!ENTITY author      "OPUS &amp; Dino (w0lf69)">
 <!ENTITY version     "%%VERSION%%">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/w0lf69/packmaster/main/packmaster.plg">
 <!ENTITY support     "https://github.com/w0lf69/packmaster">
@@ -23,12 +23,19 @@
 <CHANGES>
 ### %%VERSION%%
 - Native Docker Compose management for Unraid
-- React SPA with real-time stack monitoring
-- Live log streaming (SSE)
-- CodeMirror YAML editor for compose files
-- Flexible registry — manage stacks from any directory
-- Docker Compose binary bundled (survives reboots)
-- Built by OPUS for Dino
+- Modern React dashboard with real-time stack monitoring
+- Watchtower integration: update detection, per-image digest comparison, one-click updates
+- CodeMirror 6 YAML editor: syntax highlighting, search, code folding, undo/redo
+- CodeMirror .env editor: custom syntax highlighting for environment files
+- Live log streaming (SSE) with per-container filtering and pause/resume
+- Stack discovery: auto-scan directories, bulk registration
+- Confirmation dialogs for destructive actions
+- Loading spinners with per-action tracking
+- Toast notifications on all operations
+- Settings page with configurable scan directories
+- Supports compose.yaml, compose.yml, docker-compose.yaml, docker-compose.yml
+- Works with GHCR, DockerHub, and private registries
+- Built by OPUS and Dino — Wolf Enterprises
 </CHANGES>
 
 <!-- Pre-install: clean old package versions -->
@@ -46,26 +53,33 @@ echo "PackMaster: preparing installation..."
 <SHA256>&txzSHA256;</SHA256>
 </FILE>
 
-<!-- Post-install: set permissions, ensure compose binary is in place -->
+<!-- Post-install: set permissions -->
 <FILE Run="/bin/bash">
 <INLINE>
 # Set permissions
-chmod 644 /usr/local/emhttp/plugins/packmaster/*.php
-chmod 644 /usr/local/emhttp/plugins/packmaster/includes/*.php
-chmod 644 /usr/local/emhttp/plugins/packmaster/*.page
+chmod 644 &emhttpLOC;/*.php 2>/dev/null || true
+chmod 644 &emhttpLOC;/includes/*.php 2>/dev/null || true
+chmod 644 &emhttpLOC;/*.page 2>/dev/null || true
+chmod 644 &emhttpLOC;/*.png 2>/dev/null || true
+chmod 644 &emhttpLOC;/*.cfg 2>/dev/null || true
 
-# Ensure docker-compose binary is executable
+# Ensure docker compose CLI plugin is executable (if bundled)
 if [[ -f /usr/local/lib/docker/cli-plugins/docker-compose ]]; then
     chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 fi
 
-# Create default registry if it doesn't exist
-if [[ ! -f /boot/config/plugins/packmaster/registry.json ]]; then
-    echo '{"stacks":[],"scan_dirs":["/mnt/user/appdata/dockge/stacks"]}' > /boot/config/plugins/packmaster/registry.json
+# Create default registry if first install
+if [[ ! -f &pluginLOC;/registry.json ]]; then
+    echo '{"stacks":[],"scan_dirs":["/mnt/user/appdata/dockge/stacks"]}' > &pluginLOC;/registry.json
 fi
 
-echo "PackMaster v&version; installed successfully."
-echo "Access at Docker > PackMaster"
+echo ""
+echo "-----------------------------------------------------------"
+echo " PackMaster v&version; installed successfully."
+echo " Access at: Docker > PackMaster"
+echo " Settings at: Docker > PackMaster > Settings"
+echo "-----------------------------------------------------------"
+echo ""
 </INLINE>
 </FILE>
 
@@ -75,8 +89,17 @@ echo "Access at Docker > PackMaster"
 # Remove package
 removepkg packmaster-&version; 2>/dev/null || true
 
-# Keep registry and config on flash (user data)
-echo "PackMaster removed. Registry preserved at /boot/config/plugins/packmaster/"
+# Clean temp files
+rm -f /tmp/packmaster-debug.log
+rm -f /tmp/packmaster-updates.json
+
+# Preserve user data on flash
+echo ""
+echo "PackMaster removed."
+echo "Registry preserved at: &pluginLOC;/registry.json"
+echo "Config preserved at:   &pluginLOC;/packmaster.cfg"
+echo "To fully remove, delete: &pluginLOC;/"
+echo ""
 </INLINE>
 </FILE>
 

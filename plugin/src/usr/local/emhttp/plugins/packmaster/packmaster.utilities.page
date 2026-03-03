@@ -1,0 +1,45 @@
+Menu="Utilities"
+Title="PackMaster"
+Icon="icon.png"
+Type="php"
+---
+<?php
+$plugin = "packmaster";
+$cfg = parse_plugin_cfg($plugin);
+?>
+
+<div style="margin: 20px 0;">
+    <div style="font-size: 18px; font-weight: bold; margin-bottom: 4px;">PackMaster</div>
+    <div style="font-size: 12px; color: #888;">Native Docker Compose management for Unraid</div>
+    <div style="margin-top: 12px;">
+        <a href="/Docker/PackMaster" style="color: #4ea5f7; text-decoration: none; font-size: 14px;">Open PackMaster Dashboard &rarr;</a>
+    </div>
+</div>
+
+<form markdown="1" method="POST" action="/update.php" target="progressFrame">
+<input type="hidden" name="#file" value="packmaster/packmaster.cfg">
+
+_(Scan Directories)_:
+: <input type="text" name="SCAN_DIRS" value="<?=htmlspecialchars($cfg['SCAN_DIRS'] ?? '/mnt/user/appdata/dockge/stacks')?>" size="60">
+
+<blockquote class="inline_help">
+Comma-separated list of directories to scan when discovering new Docker Compose stacks.
+Default: /mnt/user/appdata/dockge/stacks
+</blockquote>
+
+_(Debug Logging)_:
+: <select name="DEBUG_LOG">
+<?=mk_option($cfg['DEBUG_LOG'] ?? 'false', "false", _("Disabled"))?>
+<?=mk_option($cfg['DEBUG_LOG'] ?? 'false', "true", _("Enabled"))?>
+</select>
+
+<blockquote class="inline_help">
+When enabled, API requests are logged to /tmp/packmaster-debug.log. Useful for troubleshooting.
+</blockquote>
+
+&nbsp;
+
+<input type="submit" name="#default" value="_(Default)_">
+: <input type="submit" name="#apply" value="_(Apply)_" disabled>
+<input type="button" value="_(Done)_" onclick="done()">
+</form>

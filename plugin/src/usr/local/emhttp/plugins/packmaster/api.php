@@ -25,9 +25,12 @@ require_once __DIR__ . '/includes/helpers.php';
 // Fallback to php://input for CLI testing.
 $_RAW_BODY = $_POST['data'] ?? file_get_contents('php://input') ?: '';
 
-// Debug log
-$log_line = date('H:i:s') . " {$_SERVER['REQUEST_METHOD']} action=" . ($_GET['action'] ?? 'none') . " body_len=" . strlen($_RAW_BODY) . " body=" . substr($_RAW_BODY, 0, 200) . "\n";
-file_put_contents('/tmp/packmaster-debug.log', $log_line, FILE_APPEND);
+// Debug log (gated by config)
+$_PM_CFG = pm_get_config();
+if (($_PM_CFG['DEBUG_LOG'] ?? 'false') === 'true') {
+    $log_line = date('H:i:s') . " {$_SERVER['REQUEST_METHOD']} action=" . ($_GET['action'] ?? 'none') . " body_len=" . strlen($_RAW_BODY) . "\n";
+    file_put_contents('/tmp/packmaster-debug.log', $log_line, FILE_APPEND);
+}
 
 header('Content-Type: application/json');
 
