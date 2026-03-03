@@ -6,3 +6,4 @@ build/
 *.plg
 frontend/node_modules/
 plugin/src/usr/local/emhttp/plugins/packmaster/app/
+.github/
