@@ -1,0 +1,83 @@
+<?xml version='1.0' standalone='yes'?>
+<!DOCTYPE PLUGIN [
+<!ENTITY name        "packmaster">
+<!ENTITY author      "OPUS (w0lf69)">
+<!ENTITY version     "%%VERSION%%">
+<!ENTITY pluginURL   "https://raw.githubusercontent.com/w0lf69/packmaster/main/packmaster.plg">
+<!ENTITY support     "https://github.com/w0lf69/packmaster">
+<!ENTITY project     "https://github.com/w0lf69/packmaster">
+<!ENTITY txzURL      "%%TXZ_URL%%">
+<!ENTITY txzSHA256   "%%TXZ_SHA256%%">
+<!ENTITY pluginLOC   "/boot/config/plugins/&name;">
+<!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
+]>
+
+<PLUGIN name="&name;" author="&author;" version="&version;"
+    pluginURL="&pluginURL;"
+    support="&support;"
+    project="&project;"
+    icon="icon.png"
+    min="6.12.0"
+    launch="Docker/PackMaster">
+
+<CHANGES>
+### %%VERSION%%
+- Native Docker Compose management for Unraid
+- React SPA with real-time stack monitoring
+- Live log streaming (SSE)
+- CodeMirror YAML editor for compose files
+- Flexible registry — manage stacks from any directory
+- Docker Compose binary bundled (survives reboots)
+- Built by OPUS for Dino
+</CHANGES>
+
+<!-- Pre-install: clean old package versions -->
+<FILE Run="/bin/bash">
+<INLINE>
+rm -f /boot/config/plugins/packmaster/packmaster-*.txz
+mkdir -p /boot/config/plugins/packmaster
+echo "PackMaster: preparing installation..."
+</INLINE>
+</FILE>
+
+<!-- Download and install package -->
+<FILE Name="/boot/config/plugins/packmaster/packmaster-&version;.txz" Run="upgradepkg --install-new">
+<URL>&txzURL;</URL>
+<SHA256>&txzSHA256;</SHA256>
+</FILE>
+
+<!-- Post-install: set permissions, ensure compose binary is in place -->
+<FILE Run="/bin/bash">
+<INLINE>
+# Set permissions
+chmod 644 /usr/local/emhttp/plugins/packmaster/*.php
+chmod 644 /usr/local/emhttp/plugins/packmaster/includes/*.php
+chmod 644 /usr/local/emhttp/plugins/packmaster/*.page
+
+# Ensure docker-compose binary is executable
+if [[ -f /usr/local/lib/docker/cli-plugins/docker-compose ]]; then
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+fi
+
+# Create default registry if it doesn't exist
+if [[ ! -f /boot/config/plugins/packmaster/registry.json ]]; then
+    echo '{"stacks":[],"scan_dirs":["/mnt/user/appdata/dockge/stacks"]}' > /boot/config/plugins/packmaster/registry.json
+fi
+
+echo "PackMaster v&version; installed successfully."
+echo "Access at Docker > PackMaster"
+</INLINE>
+</FILE>
+
+<!-- Removal script -->
+<FILE Run="/bin/bash" Method="remove">
+<INLINE>
+# Remove package
+removepkg packmaster-&version; 2>/dev/null || true
+
+# Keep registry and config on flash (user data)
+echo "PackMaster removed. Registry preserved at /boot/config/plugins/packmaster/"
+</INLINE>
+</FILE>
+
+</PLUGIN>

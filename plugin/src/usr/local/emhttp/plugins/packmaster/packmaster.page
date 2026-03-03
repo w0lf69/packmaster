@@ -1,0 +1,18 @@
+Menu="Docker"
+Title="PackMaster"
+Icon="icon.png"
+Type="php"
+---
+<?php
+// PackMaster — Native Docker Compose management for Unraid
+// React SPA loaded via iframe for CSS isolation from Unraid's UI
+?>
+<style>
+#packmaster-frame {
+  width: 100%;
+  border: none;
+  height: calc(100vh - 64px);
+  background: #0f172a;
+}
+</style>
+<iframe id="packmaster-frame" src="/plugins/packmaster/app/index.html"></iframe>

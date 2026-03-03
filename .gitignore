@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+.cache/
+*.txz
+*.plg
+frontend/node_modules/
+plugin/src/usr/local/emhttp/plugins/packmaster/app/
