@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useStacks, useWatchtowerStatus, useUpdateCache, useCheckAllUpdates } from "../lib/hooks.ts";
 import { StackCard } from "./stack-card.tsx";
 import type { StackUpdateResult } from "../lib/types.ts";
@@ -17,6 +18,7 @@ export function Dashboard({
   const wt = useWatchtowerStatus();
   const updateCache = useUpdateCache();
   const checkAll = useCheckAllUpdates();
+  const [search, setSearch] = useState("");
 
   if (isLoading) {
     return (
@@ -124,8 +126,21 @@ export function Dashboard({
         </button>
       </div>
 
+      {/* Search — only show when there are enough stacks to warrant it */}
+      {stacks.length > 6 && (
+        <div className="mb-4">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter stacks..."
+            className="w-full max-w-xs px-3 py-1.5 text-sm bg-slate-800 border border-slate-700/50 rounded text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/50 transition-colors"
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sorted.map((stack) => (
+        {sorted.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase())).map((stack) => (
           <StackCard
             key={stack.name}
             stack={stack}
