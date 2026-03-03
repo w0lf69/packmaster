@@ -36,11 +36,11 @@ export function ComposeEditor({
   return (
     <div>
       {/* Breadcrumb */}
-      <div className="mb-4">
-        <button onClick={onBack} className="text-sm text-slate-400 hover:text-white transition-colors">
-          {name}
+      <div className="mb-4 flex items-center gap-2">
+        <button onClick={onBack} className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+          <span>&#8592;</span> {name}
         </button>
-        <span className="text-slate-600 mx-2">/</span>
+        <span className="text-slate-600">/</span>
         <span className="text-sm text-white font-medium">{data?.file ?? "compose.yaml"}</span>
         {dirty && <span className="text-amber-400 text-xs ml-2">(unsaved)</span>}
       </div>

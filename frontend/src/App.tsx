@@ -5,15 +5,29 @@ import { StackDetail } from "./components/stack-detail.tsx";
 import { ComposeEditor } from "./components/compose-editor.tsx";
 import { LogViewer } from "./components/log-viewer.tsx";
 import { StackDiscovery } from "./components/stack-discovery.tsx";
+import { ToastContainer, useToasts } from "./components/toast.tsx";
 
 export default function App() {
   const [view, setView] = useState<View>("dashboard");
   const [selectedStack, setSelectedStack] = useState("");
+  const { toasts, addToast, dismiss } = useToasts();
 
   const navigate = useCallback((v: View, stack?: string) => {
     setView(v);
     if (stack !== undefined) setSelectedStack(stack);
   }, []);
+
+  const handleActionComplete = useCallback(
+    (result: { action: string; name: string; success: boolean; output: string }) => {
+      const verb = result.action === "up" ? "started" : result.action === "down" ? "stopped" : result.action + "ed";
+      if (result.success) {
+        addToast(`${result.name} ${verb} successfully`, "success");
+      } else {
+        addToast(`${result.name} ${result.action} failed`, "error");
+      }
+    },
+    [addToast],
+  );
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200">
@@ -53,7 +67,7 @@ export default function App() {
       {/* Content */}
       <main className="max-w-7xl mx-auto px-4 py-6">
         {view === "dashboard" && (
-          <Dashboard onSelect={(name) => navigate("detail", name)} />
+          <Dashboard onSelect={(name) => navigate("detail", name)} onActionComplete={handleActionComplete} onToast={addToast} />
         )}
         {view === "detail" && (
           <StackDetail
@@ -61,6 +75,7 @@ export default function App() {
             onBack={() => navigate("dashboard")}
             onEditCompose={() => navigate("editor", selectedStack)}
             onViewLogs={() => navigate("logs", selectedStack)}
+            onActionComplete={handleActionComplete}
           />
         )}
         {view === "editor" && (
@@ -79,6 +94,9 @@ export default function App() {
           <StackDiscovery onBack={() => navigate("dashboard")} />
         )}
       </main>
+
+      {/* Toast notifications */}
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </div>
   );
 }

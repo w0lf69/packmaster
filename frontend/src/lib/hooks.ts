@@ -40,15 +40,22 @@ export function useRegistries() {
   });
 }
 
-export function useStackAction() {
+export function useStackAction(onActionComplete?: (result: { action: string; name: string; success: boolean; output: string }) => void) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ action, name }: { action: "up" | "down" | "restart" | "pull" | "update"; name: string }) => {
       return api[action](name);
     },
-    onSuccess: () => {
+    onSuccess: (data, vars) => {
       qc.invalidateQueries({ queryKey: ["stacks"] });
       qc.invalidateQueries({ queryKey: ["stack"] });
+      // After pull/update, re-check that stack's images so the update badge clears
+      if (vars.action === "pull" || vars.action === "update") {
+        api.imageUpdates(vars.name).then(() => {
+          qc.invalidateQueries({ queryKey: ["update-cache"] });
+        });
+      }
+      onActionComplete?.({ action: vars.action, name: vars.name, success: data.success, output: data.output });
     },
   });
 }
@@ -99,5 +106,49 @@ export function useUnregisterStack() {
       qc.invalidateQueries({ queryKey: ["stacks"] });
       qc.invalidateQueries({ queryKey: ["discover"] });
     },
+  });
+}
+
+// ─── Watchtower ────────────────────────────────────────────────────────
+
+export function useWatchtowerStatus() {
+  return useQuery({
+    queryKey: ["watchtower"],
+    queryFn: api.watchtowerStatus,
+    staleTime: 30_000,
+  });
+}
+
+export function useUpdateCache() {
+  return useQuery({
+    queryKey: ["update-cache"],
+    queryFn: api.allUpdateCache,
+    staleTime: 60_000,
+  });
+}
+
+export function useCheckStackUpdates() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api.imageUpdates(name),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["update-cache"] });
+    },
+  });
+}
+
+export function useCheckAllUpdates() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.checkAllUpdates(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["update-cache"] });
+    },
+  });
+}
+
+export function useWatchtowerCheck() {
+  return useMutation({
+    mutationFn: () => api.watchtowerCheck(),
   });
 }

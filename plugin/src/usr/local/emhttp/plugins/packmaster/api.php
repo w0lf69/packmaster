@@ -334,6 +334,88 @@ switch ($action) {
         echo json_encode(['configured' => true, 'registries' => $registries]);
         break;
 
+    // ─── Watchtower Integration ────────────────────────────────────────
+
+    case 'watchtower_status':
+        echo json_encode(pm_detect_watchtower());
+        break;
+
+    case 'image_updates':
+        if ($name) {
+            // Check a specific stack (hits registry — takes a few seconds per image)
+            $stack = pm_validate_stack($name, $registry);
+            if (!$stack) {
+                http_response_code(404);
+                echo json_encode(['error' => "Stack '$name' not found"]);
+                break;
+            }
+            echo json_encode(pm_check_stack_updates($name, $stack['path']));
+        } else {
+            // Return cached results for all stacks (fast — reads /tmp)
+            echo json_encode(['stacks' => pm_read_update_cache()]);
+        }
+        break;
+
+    case 'check_all_updates':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'POST required']);
+            break;
+        }
+        // Check every registered stack. Can take 30-60s for many stacks.
+        // Streams progress as JSON at the end (not SSE — simpler).
+        $results = [];
+        $totalUpdates = 0;
+        foreach ($registry['stacks'] as $stack) {
+            $r = pm_check_stack_updates($stack['name'], $stack['path']);
+            $results[$stack['name']] = $r;
+            if ($r['has_updates']) $totalUpdates++;
+        }
+        echo json_encode([
+            'stacks'        => $results,
+            'checked_at'    => date('c'),
+            'total_updates' => $totalUpdates,
+        ]);
+        break;
+
+    case 'watchtower_check':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'POST required']);
+            break;
+        }
+        $wt = pm_detect_watchtower();
+        if (!$wt['detected'] || !$wt['running']) {
+            echo json_encode(['success' => false, 'error' => 'Watchtower not detected or not running']);
+            break;
+        }
+        if (!$wt['http_api']) {
+            echo json_encode([
+                'success' => false,
+                'error'   => 'Watchtower HTTP API not enabled',
+                'hint'    => 'Add WATCHTOWER_HTTP_API_UPDATE=true and WATCHTOWER_HTTP_API_TOKEN=<your-token> to your Watchtower compose environment.',
+            ]);
+            break;
+        }
+        // Read API token from PackMaster config or Watchtower container
+        $cfg = pm_get_config();
+        $token = $cfg['WATCHTOWER_TOKEN'] ?? '';
+        if (empty($token)) {
+            // Try to read from Watchtower's own env (inspected in detect)
+            $containerName = $wt['container_name'];
+            $tokenCmd = sprintf(
+                "docker inspect %s --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null | grep WATCHTOWER_HTTP_API_TOKEN | cut -d= -f2",
+                escapeshellarg($containerName)
+            );
+            $token = trim(shell_exec($tokenCmd) ?? '');
+        }
+        if (empty($token)) {
+            echo json_encode(['success' => false, 'error' => 'No API token found. Set WATCHTOWER_TOKEN in PackMaster settings or WATCHTOWER_HTTP_API_TOKEN in Watchtower config.']);
+            break;
+        }
+        echo json_encode(pm_watchtower_api_trigger($wt['container_ip'], $token));
+        break;
+
     default:
         http_response_code(400);
         echo json_encode(['error' => "Unknown action: $action"]);

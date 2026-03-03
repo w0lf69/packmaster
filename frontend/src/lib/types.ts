@@ -65,3 +65,41 @@ export interface RegistryInfo {
 }
 
 export type View = "dashboard" | "detail" | "editor" | "logs" | "discover";
+
+// ─── Watchtower ────────────────────────────────────────────────────────
+
+export interface WatchtowerStatus {
+  detected: boolean;
+  running?: boolean;
+  container_name?: string;
+  image?: string;
+  schedule?: string | null;
+  monitor_only?: boolean;
+  cleanup?: boolean;
+  rolling_restart?: boolean;
+  http_api?: boolean;
+  api_token_set?: boolean;
+  container_ip?: string;
+}
+
+export interface ImageUpdate {
+  image: string;
+  service?: string;
+  status: "up_to_date" | "update_available" | "unknown";
+  reason?: string;
+  local_digest?: string;
+  remote_digest?: string;
+}
+
+export interface StackUpdateResult {
+  stack: string;
+  updates: ImageUpdate[];
+  checked_at: string;
+  has_updates: boolean;
+}
+
+export interface AllUpdatesResponse {
+  stacks: Record<string, StackUpdateResult>;
+  checked_at?: string;
+  total_updates?: number;
+}

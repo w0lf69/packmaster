@@ -5,6 +5,9 @@ import type {
   ActionResult,
   DiscoverResponse,
   RegistryInfo,
+  WatchtowerStatus,
+  StackUpdateResult,
+  AllUpdatesResponse,
 } from "./types.ts";
 
 const API = "/plugins/packmaster/api.php";
@@ -76,4 +79,11 @@ export const api = {
     url.searchParams.set("tail", String(tail));
     return url.toString();
   },
+
+  // Watchtower
+  watchtowerStatus: () => get<WatchtowerStatus>("watchtower_status"),
+  imageUpdates: (name: string) => get<StackUpdateResult>("image_updates", { name }),
+  allUpdateCache: () => get<AllUpdatesResponse>("image_updates"),
+  checkAllUpdates: () => post<AllUpdatesResponse>("check_all_updates"),
+  watchtowerCheck: () => post<{ success: boolean; error?: string; hint?: string; response?: string }>("watchtower_check"),
 };

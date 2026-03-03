@@ -62,9 +62,9 @@ export function LogViewer({
     <div className="flex flex-col h-[calc(100vh-140px)]">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <button onClick={onBack} className="text-sm text-slate-400 hover:text-white transition-colors">
-            {name}
+        <div className="flex items-center gap-2">
+          <button onClick={onBack} className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+            <span>&#8592;</span> {name}
           </button>
           <span className="text-slate-600">/</span>
           <span className="text-sm text-white font-medium">Logs</span>

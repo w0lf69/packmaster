@@ -1,4 +1,4 @@
-import type { Stack } from "../lib/types.ts";
+import type { Stack, StackUpdateResult } from "../lib/types.ts";
 import { useStackAction } from "../lib/hooks.ts";
 
 const statusColors = {
@@ -13,15 +13,32 @@ const statusLabels = {
   stopped: "Stopped",
 } as const;
 
-export function StackCard({ stack, onSelect }: { stack: Stack; onSelect: () => void }) {
-  const action = useStackAction();
+type ActionResult = { action: string; name: string; success: boolean; output: string };
+
+export function StackCard({
+  stack,
+  onSelect,
+  updateInfo,
+  onActionComplete,
+}: {
+  stack: Stack;
+  onSelect: () => void;
+  updateInfo?: StackUpdateResult;
+  onActionComplete?: (result: ActionResult) => void;
+}) {
+  const action = useStackAction(onActionComplete);
   const busy = action.isPending;
 
   return (
     <div
       onClick={onSelect}
-      className="bg-slate-800 border border-slate-700/50 rounded-lg p-4 cursor-pointer hover:border-slate-600 transition-colors"
+      className="bg-slate-800 border border-slate-700/50 rounded-lg p-4 cursor-pointer hover:border-slate-600 transition-colors relative"
     >
+      {/* Update available badge */}
+      {updateInfo?.has_updates && (
+        <div className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-blue-500 rounded-full ring-2 ring-slate-900" title="Update available" />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-semibold text-white truncate">{stack.name}</h3>
@@ -31,10 +48,15 @@ export function StackCard({ stack, onSelect }: { stack: Stack; onSelect: () => v
         </div>
       </div>
 
-      {/* Container count */}
-      <p className="text-sm text-slate-400 mb-4">
-        {stack.running}/{stack.total} containers
-      </p>
+      {/* Container count + update hint */}
+      <div className="flex items-center gap-2 mb-4">
+        <p className="text-sm text-slate-400">
+          {stack.running}/{stack.total} containers
+        </p>
+        {updateInfo?.has_updates && (
+          <span className="text-xs text-blue-400">update available</span>
+        )}
+      </div>
 
       {/* Actions */}
       <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
@@ -62,7 +84,7 @@ export function StackCard({ stack, onSelect }: { stack: Stack; onSelect: () => v
           </>
         )}
         <ActionBtn
-          label="Update"
+          label={busy ? "..." : "Update"}
           disabled={busy}
           onClick={() => action.mutate({ action: "update", name: stack.name })}
           className="bg-blue-600 hover:bg-blue-500"

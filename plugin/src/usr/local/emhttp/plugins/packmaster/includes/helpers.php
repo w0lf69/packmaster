@@ -7,6 +7,7 @@
 define('REGISTRY_FILE', '/boot/config/plugins/packmaster/registry.json');
 define('CONFIG_FILE', '/boot/config/plugins/packmaster/packmaster.cfg');
 define('DEFAULT_CONFIG', '/usr/local/emhttp/plugins/packmaster/default.cfg');
+define('UPDATE_CACHE_FILE', '/tmp/packmaster-updates.json');
 
 /**
  * Read the stack registry from flash.
@@ -118,4 +119,190 @@ function pm_get_config(): array {
         $cfg = array_merge($cfg, $user_cfg);
     }
     return $cfg;
+}
+
+// ─── Watchtower Integration ────────────────────────────────────────────
+
+/**
+ * Detect Watchtower container by its self-label.
+ * Returns config: schedule, flags, HTTP API status, container IP.
+ */
+function pm_detect_watchtower(): array {
+    // Find by the label Watchtower sets on itself
+    $cmd = 'docker ps -a --filter "label=com.centurylinklabs.watchtower" --format json 2>/dev/null';
+    $output = shell_exec($cmd);
+    if (!$output) {
+        return ['detected' => false];
+    }
+
+    // Take the first match
+    $line = explode("\n", trim($output))[0];
+    $container = json_decode($line, true);
+    if (!is_array($container)) {
+        return ['detected' => false];
+    }
+
+    $containerName = $container['Names'] ?? 'watchtower';
+
+    // Full inspect for env vars and networking
+    $inspectCmd = sprintf('docker inspect %s --format json 2>/dev/null', escapeshellarg($containerName));
+    $inspectOutput = shell_exec($inspectCmd);
+    if (!$inspectOutput) {
+        return ['detected' => true, 'running' => false, 'container_name' => $containerName];
+    }
+
+    $inspectData = json_decode($inspectOutput, true);
+    $info = is_array($inspectData[0] ?? null) ? $inspectData[0] : ($inspectData ?? []);
+
+    // Parse env vars into a map
+    $envMap = [];
+    foreach ($info['Config']['Env'] ?? [] as $e) {
+        $parts = explode('=', $e, 2);
+        $envMap[$parts[0]] = $parts[1] ?? '';
+    }
+
+    // Get container IP (try all networks)
+    $containerIp = '';
+    foreach ($info['NetworkSettings']['Networks'] ?? [] as $net) {
+        if (!empty($net['IPAddress'])) {
+            $containerIp = $net['IPAddress'];
+            break;
+        }
+    }
+
+    $httpApiEnabled = ($envMap['WATCHTOWER_HTTP_API_UPDATE'] ?? '') === 'true';
+
+    return [
+        'detected'        => true,
+        'running'         => ($info['State']['Status'] ?? '') === 'running',
+        'container_name'  => ltrim($info['Name'] ?? '/' . $containerName, '/'),
+        'image'           => $info['Config']['Image'] ?? '',
+        'schedule'        => $envMap['WATCHTOWER_SCHEDULE'] ?? null,
+        'monitor_only'    => ($envMap['WATCHTOWER_MONITOR_ONLY'] ?? 'false') === 'true',
+        'cleanup'         => ($envMap['WATCHTOWER_CLEANUP'] ?? 'false') === 'true',
+        'rolling_restart' => ($envMap['WATCHTOWER_ROLLING_RESTART'] ?? 'false') === 'true',
+        'http_api'        => $httpApiEnabled,
+        'api_token_set'   => !empty($envMap['WATCHTOWER_HTTP_API_TOKEN'] ?? ''),
+        'container_ip'    => $containerIp,
+    ];
+}
+
+/**
+ * Check if a single Docker image has a newer version available remotely.
+ * Compares local RepoDigest with remote index digest via buildx imagetools.
+ */
+function pm_check_image_update(string $image): array {
+    // Get local digest
+    $localCmd = sprintf(
+        "docker image inspect %s --format '{{index .RepoDigests 0}}' 2>/dev/null",
+        escapeshellarg($image)
+    );
+    $localDigest = trim(shell_exec($localCmd) ?? '');
+
+    if (empty($localDigest)) {
+        return ['image' => $image, 'status' => 'unknown', 'reason' => 'no_local_digest'];
+    }
+
+    if (!preg_match('/sha256:([a-f0-9]+)/', $localDigest, $localMatch)) {
+        return ['image' => $image, 'status' => 'unknown', 'reason' => 'unparseable_local'];
+    }
+
+    // Get remote digest via buildx imagetools (hits registry, respects /root/.docker/config.json auth)
+    $remoteCmd = sprintf(
+        "docker buildx imagetools inspect %s 2>&1 | grep '^Digest:' | head -1",
+        escapeshellarg($image)
+    );
+    $remoteLine = trim(shell_exec($remoteCmd) ?? '');
+
+    if (!preg_match('/sha256:([a-f0-9]+)/', $remoteLine, $remoteMatch)) {
+        return ['image' => $image, 'status' => 'unknown', 'reason' => 'no_remote_digest'];
+    }
+
+    $match = $localMatch[1] === $remoteMatch[1];
+
+    return [
+        'image'         => $image,
+        'status'        => $match ? 'up_to_date' : 'update_available',
+        'local_digest'  => substr($localMatch[1], 0, 12),
+        'remote_digest' => substr($remoteMatch[1], 0, 12),
+    ];
+}
+
+/**
+ * Read the update check cache from /tmp.
+ */
+function pm_read_update_cache(): array {
+    if (!file_exists(UPDATE_CACHE_FILE)) return [];
+    $data = json_decode(file_get_contents(UPDATE_CACHE_FILE), true);
+    return is_array($data) ? $data : [];
+}
+
+/**
+ * Write update check results to /tmp cache.
+ */
+function pm_write_update_cache(array $cache): void {
+    file_put_contents(UPDATE_CACHE_FILE, json_encode($cache, JSON_PRETTY_PRINT));
+}
+
+/**
+ * Check all images in a stack for remote updates.
+ * Results are cached per-stack in /tmp.
+ */
+function pm_check_stack_updates(string $stackName, string $stackPath): array {
+    $containers = pm_stack_status($stackPath);
+    if (empty($containers)) {
+        return ['stack' => $stackName, 'updates' => [], 'checked_at' => date('c'), 'has_updates' => false];
+    }
+
+    $updates = [];
+    $seen = [];
+    foreach ($containers as $c) {
+        $image = $c['Image'] ?? '';
+        if (empty($image) || isset($seen[$image])) continue;
+        $seen[$image] = true;
+        $check = pm_check_image_update($image);
+        $check['service'] = $c['Service'] ?? $c['Name'] ?? '';
+        $updates[] = $check;
+    }
+
+    $result = [
+        'stack'       => $stackName,
+        'updates'     => $updates,
+        'checked_at'  => date('c'),
+        'has_updates' => count(array_filter($updates, fn($u) => $u['status'] === 'update_available')) > 0,
+    ];
+
+    // Cache
+    $cache = pm_read_update_cache();
+    $cache[$stackName] = $result;
+    pm_write_update_cache($cache);
+
+    return $result;
+}
+
+/**
+ * Call Watchtower HTTP API to trigger an update check.
+ * PHP runs on the host; uses container IP since port may not be mapped.
+ */
+function pm_watchtower_api_trigger(string $containerIp, string $token): array {
+    if (empty($containerIp)) {
+        return ['success' => false, 'error' => 'No container IP'];
+    }
+
+    $url = "http://{$containerIp}:8080/v1/update";
+    $cmd = sprintf(
+        'curl -s -m 15 -X POST -H %s %s 2>&1',
+        escapeshellarg("Authorization: Bearer {$token}"),
+        escapeshellarg($url)
+    );
+
+    $output = trim(shell_exec($cmd) ?? '');
+
+    // Watchtower returns 200 with empty body on success
+    $isError = str_contains($output, 'curl:') || str_contains($output, 'Connection refused');
+
+    return [
+        'success'  => !$isError,
+        'response' => $output ?: '(empty — update triggered)',
+    ];
 }
