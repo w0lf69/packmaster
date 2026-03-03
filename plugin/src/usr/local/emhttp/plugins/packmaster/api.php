@@ -71,6 +71,7 @@ switch ($action) {
             'name'         => $stack['name'],
             'path'         => $stack['path'],
             'compose_file' => $compose_file,
+            'has_env'      => file_exists($stack['path'] . '/.env'),
             'containers'   => $containers,
         ]);
         break;
@@ -332,6 +333,52 @@ switch ($action) {
             ];
         }
         echo json_encode(['configured' => true, 'registries' => $registries]);
+        break;
+
+    // ─── .env file management ──────────────────────────────────────────
+
+    case 'env':
+        $stack = pm_validate_stack($name, $registry);
+        if (!$stack) {
+            http_response_code(404);
+            echo json_encode(['error' => "Stack '$name' not found"]);
+            break;
+        }
+        $env_file = $stack['path'] . '/.env';
+        echo json_encode([
+            'name'    => $stack['name'],
+            'exists'  => file_exists($env_file),
+            'content' => file_exists($env_file) ? file_get_contents($env_file) : '',
+        ]);
+        break;
+
+    case 'save_env':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'POST required']);
+            break;
+        }
+        $stack = pm_validate_stack($name, $registry);
+        if (!$stack) {
+            http_response_code(404);
+            echo json_encode(['error' => "Stack '$name' not found"]);
+            break;
+        }
+
+        $body = json_decode($_RAW_BODY, true);
+        $content = $body['content'] ?? '';
+
+        $env_file = $stack['path'] . '/.env';
+
+        // Backup before save (if file exists)
+        $backup = '';
+        if (file_exists($env_file)) {
+            $backup = $env_file . '.bak.' . date('Ymd_His');
+            copy($env_file, $backup);
+        }
+
+        file_put_contents($env_file, $content);
+        echo json_encode(['success' => true, 'backup' => $backup ? basename($backup) : null, 'created' => !$backup]);
         break;
 
     // ─── Watchtower Integration ────────────────────────────────────────

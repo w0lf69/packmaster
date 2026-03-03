@@ -60,6 +60,26 @@ export function useStackAction(onActionComplete?: (result: { action: string; nam
   });
 }
 
+export function useEnv(name: string) {
+  return useQuery({
+    queryKey: ["env", name],
+    queryFn: () => api.env(name),
+    enabled: !!name,
+  });
+}
+
+export function useSaveEnv() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, content }: { name: string; content: string }) => {
+      return api.saveEnv(name, content);
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["env", vars.name] });
+    },
+  });
+}
+
 export function useSaveCompose() {
   const qc = useQueryClient();
   return useMutation({

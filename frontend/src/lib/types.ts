@@ -28,6 +28,7 @@ export interface StackDetail {
   name: string;
   path: string;
   compose_file: string | null;
+  has_env: boolean;
   containers: Container[];
 }
 
@@ -64,7 +65,13 @@ export interface RegistryInfo {
   registries: { host: string; has_auth: boolean }[];
 }
 
-export type View = "dashboard" | "detail" | "editor" | "logs" | "discover";
+export interface EnvFile {
+  name: string;
+  exists: boolean;
+  content: string;
+}
+
+export type View = "dashboard" | "detail" | "editor" | "env" | "logs" | "discover";
 
 // ─── Watchtower ────────────────────────────────────────────────────────
 

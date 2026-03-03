@@ -3,6 +3,7 @@ import type { View } from "./lib/types.ts";
 import { Dashboard } from "./components/dashboard.tsx";
 import { StackDetail } from "./components/stack-detail.tsx";
 import { ComposeEditor } from "./components/compose-editor.tsx";
+import { EnvEditor } from "./components/env-editor.tsx";
 import { LogViewer } from "./components/log-viewer.tsx";
 import { StackDiscovery } from "./components/stack-discovery.tsx";
 import { ToastContainer, useToasts } from "./components/toast.tsx";
@@ -74,12 +75,19 @@ export default function App() {
             name={selectedStack}
             onBack={() => navigate("dashboard")}
             onEditCompose={() => navigate("editor", selectedStack)}
+            onEditEnv={() => navigate("env", selectedStack)}
             onViewLogs={() => navigate("logs", selectedStack)}
             onActionComplete={handleActionComplete}
           />
         )}
         {view === "editor" && (
           <ComposeEditor
+            name={selectedStack}
+            onBack={() => navigate("detail", selectedStack)}
+          />
+        )}
+        {view === "env" && (
+          <EnvEditor
             name={selectedStack}
             onBack={() => navigate("detail", selectedStack)}
           />
