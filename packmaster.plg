@@ -2,12 +2,12 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "packmaster">
 <!ENTITY author      "OPUS &amp; Dino (w0lf69)">
-<!ENTITY version     "2026.03.04">
+<!ENTITY version     "2026.03.04a">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/w0lf69/packmaster/main/packmaster.plg">
 <!ENTITY support     "https://github.com/w0lf69/packmaster">
 <!ENTITY project     "https://github.com/w0lf69/packmaster">
-<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.03.04/packmaster-2026.03.04.txz">
-<!ENTITY txzSHA256   "f41e8540964b9235f562f260ff233789428a7a7bc36cbc131e82f11129c03968">
+<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.03.04a/packmaster-2026.03.04a.txz">
+<!ENTITY txzSHA256   "05f6486d44d096b3e751820d139776b772ef2782541ea94cfc1895b3ed3bcb2c">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
@@ -21,7 +21,7 @@
     launch="Docker/PackMaster">
 
 <CHANGES>
-### 2026.03.04
+### 2026.03.04a
 - Native Docker Compose management for Unraid
 - Modern React dashboard with real-time stack monitoring
 - Watchtower integration: update detection, per-image digest comparison, one-click updates
