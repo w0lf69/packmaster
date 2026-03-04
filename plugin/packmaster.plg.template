@@ -84,7 +84,7 @@ echo ""
 echo "-----------------------------------------------------------"
 echo " PackMaster v&version; installed successfully."
 echo " Access at: Docker > PackMaster"
-echo " Settings at: Docker > PackMaster > Settings"
+echo " Settings at: Settings > Utilities > PackMaster"
 echo "-----------------------------------------------------------"
 echo ""
 </INLINE>
