@@ -269,6 +269,9 @@ switch ($action) {
             if (!pm_find_compose_file($path)) { $errors[] = "No compose file: $path"; continue; }
             if (in_array($path, $registered_paths)) { continue; } // skip dupes silently
 
+            // Prevent name collisions — auto-suffix if needed
+            $stackName = pm_unique_name($stackName, $registry);
+
             $registry['stacks'][] = ['name' => $stackName, 'path' => $path];
             $registered_paths[] = $path;
             $added[] = $stackName;
@@ -412,8 +415,8 @@ switch ($action) {
             echo json_encode(['error' => 'POST required']);
             break;
         }
-        // Check every registered stack. Can take 30-60s for many stacks.
-        // Streams progress as JSON at the end (not SSE — simpler).
+        // Registry checks hit remote registries — can take minutes for many stacks.
+        set_time_limit(300);
         $results = [];
         $totalUpdates = 0;
         foreach ($registry['stacks'] as $stack) {

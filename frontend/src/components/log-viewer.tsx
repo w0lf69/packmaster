@@ -12,19 +12,27 @@ export function LogViewer({
   const { data: stackData } = useStack(name);
   const [lines, setLines] = useState<string[]>([]);
   const [paused, setPaused] = useState(false);
+  const [connected, setConnected] = useState(true);
   const [container, setContainer] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const retryCountRef = useRef(0);
 
   const connect = useCallback(() => {
     eventSourceRef.current?.close();
     setLines([]);
+    setConnected(true);
 
     const url = api.logsUrl(name, container || undefined);
     const es = new EventSource(url);
     eventSourceRef.current = es;
 
+    es.onopen = () => {
+      retryCountRef.current = 0;
+    };
+
     es.onmessage = (event) => {
+      retryCountRef.current = 0;
       const data = JSON.parse(event.data) as { line?: string; error?: string };
       if (data.error) {
         setLines((prev) => [...prev, `[ERROR] ${data.error}`]);
@@ -40,7 +48,14 @@ export function LogViewer({
     };
 
     es.onerror = () => {
-      setLines((prev) => [...prev, "[Connection lost. Reconnecting...]"]);
+      retryCountRef.current++;
+      // If we get 3 rapid errors without any successful messages, the stream is dead
+      if (retryCountRef.current >= 3) {
+        es.close();
+        eventSourceRef.current = null;
+        setConnected(false);
+        setLines((prev) => [...prev, "[Stream ended — stack may be stopped]"]);
+      }
     };
   }, [name, container]);
 
@@ -85,13 +100,23 @@ export function LogViewer({
             </select>
           )}
 
+          {!connected && (
+            <button
+              onClick={connect}
+              className="px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors"
+            >
+              Reconnect
+            </button>
+          )}
+
           <button
             onClick={() => setPaused(!paused)}
+            disabled={!connected}
             className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
               paused
                 ? "bg-amber-600 text-white"
                 : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-            }`}
+            } disabled:opacity-50`}
           >
             {paused ? "Resume" : "Pause"}
           </button>
@@ -122,7 +147,7 @@ export function LogViewer({
       </div>
 
       <div className="mt-2 text-xs text-slate-500">
-        {lines.length} lines {paused && "(paused)"}
+        {lines.length} lines {paused && "(paused)"} {!connected && "(disconnected)"}
       </div>
     </div>
   );

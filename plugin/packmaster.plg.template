@@ -63,9 +63,16 @@ chmod 644 &emhttpLOC;/*.page 2>/dev/null || true
 chmod 644 &emhttpLOC;/*.png 2>/dev/null || true
 chmod 644 &emhttpLOC;/*.cfg 2>/dev/null || true
 
-# Ensure docker compose CLI plugin is executable (if bundled)
-if [[ -f /usr/local/lib/docker/cli-plugins/docker-compose ]]; then
+# Ensure docker compose v2 is available (don't overwrite existing)
+if ! docker compose version &>/dev/null; then
+    echo "PackMaster: docker compose not found, installing v2.32.4..."
+    mkdir -p /usr/local/lib/docker/cli-plugins
+    curl -fsSL "https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-x86_64" \
+        -o /usr/local/lib/docker/cli-plugins/docker-compose
     chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+    echo "PackMaster: docker compose installed."
+else
+    echo "PackMaster: docker compose already available ($(docker compose version --short))."
 fi
 
 # Create default registry if first install

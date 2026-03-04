@@ -94,11 +94,9 @@ export function StackDetail({
         <button onClick={onEditCompose} className="px-4 py-2 text-sm bg-slate-800 border border-slate-700 rounded hover:border-slate-500 transition-colors">
           Edit Compose
         </button>
-        {data.has_env && (
-          <button onClick={onEditEnv} className="px-4 py-2 text-sm bg-slate-800 border border-slate-700 rounded hover:border-slate-500 transition-colors">
-            Edit .env
-          </button>
-        )}
+        <button onClick={onEditEnv} className="px-4 py-2 text-sm bg-slate-800 border border-slate-700 rounded hover:border-slate-500 transition-colors">
+          {data.has_env ? "Edit .env" : "Create .env"}
+        </button>
         <button onClick={onViewLogs} className="px-4 py-2 text-sm bg-slate-800 border border-slate-700 rounded hover:border-slate-500 transition-colors">
           View Logs
         </button>

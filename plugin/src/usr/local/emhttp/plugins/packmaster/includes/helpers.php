@@ -26,7 +26,18 @@ function pm_read_registry(): array {
 function pm_write_registry(array $registry): void {
     $dir = dirname(REGISTRY_FILE);
     if (!is_dir($dir)) mkdir($dir, 0700, true);
-    file_put_contents(REGISTRY_FILE, json_encode($registry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    file_put_contents(REGISTRY_FILE, json_encode($registry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+}
+
+/**
+ * Generate a unique stack name (auto-suffix -2, -3, etc. on collision).
+ */
+function pm_unique_name(string $name, array $registry): string {
+    $existing = array_column($registry['stacks'], 'name');
+    if (!in_array($name, $existing)) return $name;
+    $i = 2;
+    while (in_array("$name-$i", $existing)) $i++;
+    return "$name-$i";
 }
 
 /**

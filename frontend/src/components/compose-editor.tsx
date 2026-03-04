@@ -59,17 +59,39 @@ export function ComposeEditor({
   const viewRef = useRef<EditorView | null>(null);
   const contentRef = useRef("");
   const dirtyRef = useRef(false);
+  const saveRef = useRef(() => {});
 
-  // Keep dirtyRef in sync
+  // Keep refs in sync
   useEffect(() => {
     dirtyRef.current = dirty;
   }, [dirty]);
 
-  const handleSave = useCallback(() => {
-    if (!dirtyRef.current || save.isPending) return;
-    save.mutate({ name, content: contentRef.current });
-    setDirty(false);
+  // Update save ref without triggering CodeMirror rebuild
+  useEffect(() => {
+    saveRef.current = () => {
+      if (!dirtyRef.current || save.isPending) return;
+      save.mutate({ name, content: contentRef.current });
+      setDirty(false);
+    };
   }, [name, save]);
+
+  const handleSave = useCallback(() => {
+    saveRef.current();
+  }, []);
+
+  // Warn on browser/tab close with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (dirtyRef.current) { e.preventDefault(); }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, []);
+
+  const handleBack = useCallback(() => {
+    if (dirtyRef.current && !confirm("You have unsaved changes. Discard them?")) return;
+    onBack();
+  }, [onBack]);
 
   // Create CodeMirror instance when data loads
   useEffect(() => {
@@ -148,7 +170,7 @@ export function ComposeEditor({
     return (
       <div className="text-center py-10">
         <p className="text-red-400 mb-4">Failed to load: {error.message}</p>
-        <button onClick={onBack} className="text-blue-400 hover:text-blue-300">Back</button>
+        <button onClick={handleBack} className="text-blue-400 hover:text-blue-300">Back</button>
       </div>
     );
   }
@@ -157,7 +179,7 @@ export function ComposeEditor({
     <div className="flex flex-col h-[calc(100vh-140px)]">
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2">
-        <button onClick={onBack} className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
+        <button onClick={handleBack} className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1">
           <span>&#8592;</span> {name}
         </button>
         <span className="text-slate-600">/</span>

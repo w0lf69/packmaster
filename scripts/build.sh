@@ -10,28 +10,7 @@ FRONTEND_DIR="$ROOT_DIR/frontend"
 BUILD_DIR="$ROOT_DIR/build"
 EMHTTP_DIR="$PLUGIN_DIR/src/usr/local/emhttp/plugins/packmaster"
 
-COMPOSE_VERSION="v2.32.4"
-COMPOSE_BINARY="$ROOT_DIR/.cache/docker-compose-${COMPOSE_VERSION}"
-COMPOSE_DEST="$PLUGIN_DIR/src/usr/local/lib/docker/cli-plugins/docker-compose"
-
 echo "=== PackMaster Build v${VERSION} ==="
-
-# Step 0: Download docker-compose binary (cached)
-echo ""
-echo "--- Ensuring docker-compose binary ---"
-mkdir -p "$ROOT_DIR/.cache"
-if [[ ! -f "$COMPOSE_BINARY" ]]; then
-    echo "Downloading docker-compose ${COMPOSE_VERSION} for linux/amd64..."
-    curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
-        -o "$COMPOSE_BINARY"
-    chmod +x "$COMPOSE_BINARY"
-    echo "Downloaded."
-else
-    echo "Using cached binary."
-fi
-mkdir -p "$(dirname "$COMPOSE_DEST")"
-cp "$COMPOSE_BINARY" "$COMPOSE_DEST"
-chmod +x "$COMPOSE_DEST"
 
 # Step 1: Build frontend
 echo ""
@@ -58,10 +37,6 @@ cp -R "$PLUGIN_DIR/src/"* "$BUILD_DIR/"
 # Set permissions
 find "$BUILD_DIR" -type d -exec chmod 755 {} \;
 find "$BUILD_DIR" -type f -exec chmod 644 {} \;
-# docker-compose binary must be executable
-if [[ -f "$BUILD_DIR/usr/local/lib/docker/cli-plugins/docker-compose" ]]; then
-    chmod +x "$BUILD_DIR/usr/local/lib/docker/cli-plugins/docker-compose"
-fi
 
 # Convert line endings
 find "$BUILD_DIR" -type f \( -name "*.php" -o -name "*.page" -o -name "*.cfg" \) \
