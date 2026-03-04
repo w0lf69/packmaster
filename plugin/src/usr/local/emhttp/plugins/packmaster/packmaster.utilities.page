@@ -1,7 +1,6 @@
 Menu="Utilities"
 Title="PackMaster"
 Icon="icon.png"
-Type="php"
 ---
 <?php
 $plugin = "packmaster";

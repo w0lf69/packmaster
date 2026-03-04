@@ -1,6 +1,5 @@
 Menu="Docker:PackMaster"
 Title="PackMaster Settings"
-Type="php"
 ---
 <?php
 $plugin = "packmaster";
