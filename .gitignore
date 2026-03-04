@@ -8,3 +8,4 @@ plugin/*.plg.bak
 frontend/node_modules/
 plugin/src/usr/local/emhttp/plugins/packmaster/app/
 .github/
+CODEX.json
