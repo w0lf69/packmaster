@@ -2,12 +2,12 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "packmaster">
 <!ENTITY author      "OPUS &amp; Dino (w0lf69)">
-<!ENTITY version     "2026.03.19">
+<!ENTITY version     "2026.03.19d">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/w0lf69/packmaster/main/packmaster.plg">
 <!ENTITY support     "https://github.com/w0lf69/packmaster">
 <!ENTITY project     "https://github.com/w0lf69/packmaster">
-<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.03.19/packmaster-2026.03.19.txz">
-<!ENTITY txzSHA256   "74d5df473003a18558571fc133ef36ad71924fc83a921de0427e4b77c0267527">
+<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.03.19d/packmaster-2026.03.19d.txz">
+<!ENTITY txzSHA256   "bf2a600c9435772b2382ef7a625349e9c359c1865f89ba1fee3660775a1b6085">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
@@ -21,7 +21,13 @@
     launch="Docker/PackMaster">
 
 <CHANGES>
-### 2026.03.19
+### 2026.03.19d
+- Security hardening: compose subcommand allowlist in pm_compose_exec
+- CSRF origin validation on browser POST requests (Bearer API path unaffected)
+- YAML validation via docker compose config before saving compose files
+- Register endpoint restricted to /mnt/user/ paths
+
+### 2026.03.19c
 - Standalone API server: PackMaster API accessible on dedicated port (default 9444)
 - Bearer token auth bypasses Unraid's emhttpd login wall for programmatic access
 - Configurable API_PORT in PackMaster settings

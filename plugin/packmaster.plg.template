@@ -22,6 +22,12 @@
 
 <CHANGES>
 ### %%VERSION%%
+- Security hardening: compose subcommand allowlist in pm_compose_exec
+- CSRF origin validation on browser POST requests (Bearer API path unaffected)
+- YAML validation via docker compose config before saving compose files
+- Register endpoint restricted to /mnt/user/ paths
+
+### 2026.03.19c
 - Standalone API server: PackMaster API accessible on dedicated port (default 9444)
 - Bearer token auth bypasses Unraid's emhttpd login wall for programmatic access
 - Configurable API_PORT in PackMaster settings
