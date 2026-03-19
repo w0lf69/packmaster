@@ -533,7 +533,7 @@ switch ($action) {
 
         $steps = [];
 
-        // 1. Find and copy compose file
+        // 1. Copy entire stack directory (compose, Dockerfiles, configs, etc.)
         $compose_file = pm_find_compose_file($old_path);
         if (!$compose_file) {
             http_response_code(400);
@@ -544,13 +544,27 @@ switch ($action) {
         if (!is_dir($new_stack_dir)) {
             mkdir($new_stack_dir, 0755, true);
         }
-        $new_compose = $new_stack_dir . '/' . basename($compose_file);
-        copy($compose_file, $new_compose);
-        $steps[] = 'compose copied to ' . $new_compose;
+
+        // Copy all files except .env (that goes to secrets dir)
+        $copied_files = [];
+        foreach (scandir($old_path) as $entry) {
+            if ($entry === '.' || $entry === '..') continue;
+            $src = rtrim($old_path, '/') . '/' . $entry;
+            $dst = $new_stack_dir . '/' . $entry;
+            if ($entry === '.env') continue; // handled separately
+            if (is_dir($src)) {
+                // Recursively copy subdirectories (build contexts, etc.)
+                exec(sprintf('cp -a %s %s', escapeshellarg($src), escapeshellarg($dst)));
+                $copied_files[] = $entry . '/';
+            } else {
+                copy($src, $dst);
+                $copied_files[] = $entry;
+            }
+        }
+        $steps[] = 'copied ' . count($copied_files) . ' items: ' . implode(', ', $copied_files);
 
         // 2. Copy .env to secrets dir if it exists
         $old_env = rtrim($old_path, '/') . '/.env';
-        // Also check if already in secrets dir
         $existing_secrets_env = rtrim($secrets_dir, '/') . '/' . $name . '/.env';
         $env_migrated = false;
 
