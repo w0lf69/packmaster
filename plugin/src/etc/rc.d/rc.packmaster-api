@@ -1,0 +1,122 @@
+#!/bin/bash
+# /etc/rc.d/rc.packmaster-api
+# PackMaster Standalone API Service
+#
+# Serves PackMaster API on a dedicated port, outside Unraid's emhttpd auth wall.
+# Bearer token required for all requests. Managed by the PackMaster plugin.
+
+PLUGIN_DIR="/usr/local/emhttp/plugins/packmaster"
+CONFIG_FILE="/boot/config/plugins/packmaster/packmaster.cfg"
+DEFAULT_CONFIG="${PLUGIN_DIR}/default.cfg"
+PID_FILE="/var/run/packmaster-api.pid"
+LOG_FILE="/var/log/packmaster-api.log"
+DEFAULT_PORT=9444
+
+# Read port from config or use default
+get_port() {
+    local port=""
+    if [[ -f "$CONFIG_FILE" ]]; then
+        port=$(grep -E '^API_PORT=' "$CONFIG_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'")
+    fi
+    if [[ -z "$port" && -f "$DEFAULT_CONFIG" ]]; then
+        port=$(grep -E '^API_PORT=' "$DEFAULT_CONFIG" | cut -d= -f2 | tr -d '"' | tr -d "'")
+    fi
+    echo "${port:-$DEFAULT_PORT}"
+}
+
+# Check if API token is configured
+check_token() {
+    if [[ -f "$CONFIG_FILE" ]]; then
+        local token
+        token=$(grep -E '^API_TOKEN=' "$CONFIG_FILE" | cut -d= -f2 | tr -d '"' | tr -d "'")
+        if [[ -n "$token" ]]; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+start() {
+    if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        echo "PackMaster API already running (PID $(cat "$PID_FILE"))"
+        return 0
+    fi
+
+    if ! check_token; then
+        echo "PackMaster API: WARNING - no API_TOKEN in $CONFIG_FILE"
+        echo "  All requests will be rejected until a token is set."
+        echo "  Set one via PackMaster Settings or:"
+        echo "    echo 'API_TOKEN=\"your-secret\"' >> $CONFIG_FILE"
+    fi
+
+    local port
+    port=$(get_port)
+
+    echo "PackMaster API: Starting on port ${port}..."
+    nohup php -S "0.0.0.0:${port}" \
+        -t "$PLUGIN_DIR" \
+        "$PLUGIN_DIR/router.php" \
+        >> "$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+
+    # Verify it started
+    sleep 1
+    if kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        echo "PackMaster API: Running on port ${port} (PID $(cat "$PID_FILE"))"
+    else
+        echo "PackMaster API: Failed to start. Check ${LOG_FILE}"
+        rm -f "$PID_FILE"
+        return 1
+    fi
+}
+
+stop() {
+    if [[ ! -f "$PID_FILE" ]]; then
+        echo "PackMaster API: Not running"
+        return 0
+    fi
+
+    local pid
+    pid=$(cat "$PID_FILE")
+    if kill -0 "$pid" 2>/dev/null; then
+        echo "PackMaster API: Stopping (PID ${pid})..."
+        kill "$pid"
+        local i=0
+        while kill -0 "$pid" 2>/dev/null && [[ $i -lt 10 ]]; do
+            sleep 0.5
+            ((i++))
+        done
+        # Force kill if still alive
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -9 "$pid" 2>/dev/null
+        fi
+        echo "PackMaster API: Stopped"
+    else
+        echo "PackMaster API: Process not found (stale PID file)"
+    fi
+    rm -f "$PID_FILE"
+}
+
+status() {
+    if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+        local port
+        port=$(get_port)
+        echo "PackMaster API: Running on port ${port} (PID $(cat "$PID_FILE"))"
+        return 0
+    else
+        echo "PackMaster API: Not running"
+        rm -f "$PID_FILE" 2>/dev/null
+        return 1
+    fi
+}
+
+case "$1" in
+    start)   start ;;
+    stop)    stop ;;
+    restart) stop; start ;;
+    status)  status ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac

@@ -40,6 +40,8 @@ cp -R "$PLUGIN_SRC"/* "$BUILD_DIR/"
 # Set permissions
 find "$BUILD_DIR" -type d -exec chmod 755 {} \;
 find "$BUILD_DIR" -type f -exec chmod 644 {} \;
+# rc scripts must be executable
+find "$BUILD_DIR" -path "*/rc.d/*" -type f -exec chmod 755 {} \;
 
 # Convert line endings (CRLF safety)
 find "$BUILD_DIR" -type f \( -name "*.page" -o -name "*.php" -o -name "*.cfg" \) \

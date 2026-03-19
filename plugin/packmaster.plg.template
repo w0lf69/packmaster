@@ -22,6 +22,14 @@
 
 <CHANGES>
 ### %%VERSION%%
+- Standalone API server: PackMaster API accessible on dedicated port (default 9444)
+- Bearer token auth bypasses Unraid's emhttpd login wall for programmatic access
+- Configurable API_PORT in PackMaster settings
+- Health check endpoint at /health (no auth required)
+- Auto-start on plugin install, auto-stop on removal
+- Service management: /etc/rc.d/rc.packmaster-api {start|stop|restart|status}
+
+### 2026.03.19
 - Bearer token API auth for programmatic access from trusted machines
 - Secrets path split: .env files in separate SECRETS_DIR, isolated from compose files
 - docker compose --env-file auto-applied when secrets dir configured
@@ -90,11 +98,16 @@ if [[ ! -f &pluginLOC;/registry.json ]]; then
     echo '{"stacks":[],"scan_dirs":["/mnt/user/packmaster/stacks"]}' > &pluginLOC;/registry.json
 fi
 
+# Start standalone API server
+chmod +x /etc/rc.d/rc.packmaster-api 2>/dev/null || true
+/etc/rc.d/rc.packmaster-api restart
+
 echo ""
 echo "-----------------------------------------------------------"
 echo " PackMaster v&version; installed successfully."
 echo " Access at: Docker > PackMaster"
 echo " Settings at: Settings > Utilities > PackMaster"
+echo " API server: http://$(hostname):$(grep -E '^API_PORT=' &emhttpLOC;/default.cfg 2>/dev/null | cut -d= -f2 | tr -d '\"' || echo 9444)/health"
 echo "-----------------------------------------------------------"
 echo ""
 </INLINE>
@@ -103,12 +116,17 @@ echo ""
 <!-- Removal script -->
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
+# Stop standalone API server
+/etc/rc.d/rc.packmaster-api stop 2>/dev/null || true
+
 # Remove package
 removepkg packmaster-&version; 2>/dev/null || true
 
 # Clean temp files
 rm -f /tmp/packmaster-debug.log
 rm -f /tmp/packmaster-updates.json
+rm -f /var/run/packmaster-api.pid
+rm -f /var/log/packmaster-api.log
 
 # Preserve user data on flash
 echo ""
