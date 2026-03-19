@@ -60,6 +60,7 @@ export function ComposeEditor({
   const contentRef = useRef("");
   const dirtyRef = useRef(false);
   const saveRef = useRef(() => {});
+  const [prevSource, setPrevSource] = useState(data?.content);
 
   // Keep refs in sync
   useEffect(() => {
@@ -93,6 +94,12 @@ export function ComposeEditor({
     onBack();
   }, [onBack]);
 
+  // Reset dirty when source content changes (render-time adjustment)
+  if (data?.content !== undefined && data.content !== prevSource) {
+    setPrevSource(data.content);
+    if (dirty) setDirty(false);
+  }
+
   // Create CodeMirror instance when data loads
   useEffect(() => {
     if (!data?.content || !editorContainerRef.current) return;
@@ -104,7 +111,6 @@ export function ComposeEditor({
     }
 
     contentRef.current = data.content;
-    setDirty(false);
 
     const state = EditorState.create({
       doc: data.content,

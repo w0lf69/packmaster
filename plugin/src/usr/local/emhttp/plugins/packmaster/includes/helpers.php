@@ -81,19 +81,57 @@ function pm_stack_status(string $stack_dir): array {
 }
 
 /**
+ * Resolve the .env file path for a stack.
+ * Checks secrets dir first (SECRETS_DIR/<stack_name>/.env), falls back to stack dir.
+ */
+function pm_resolve_env_path(string $stack_name, string $stack_dir): string {
+    $cfg = pm_get_config();
+    $secrets_dir = $cfg['SECRETS_DIR'] ?? '';
+    if (!empty($secrets_dir)) {
+        $secrets_env = rtrim($secrets_dir, '/') . '/' . $stack_name . '/.env';
+        if (file_exists($secrets_env)) return $secrets_env;
+    }
+    return rtrim($stack_dir, '/') . '/.env';
+}
+
+/**
+ * Get the secrets directory path for a stack (for creating new .env files).
+ * Returns the secrets dir path if configured, otherwise the stack dir.
+ */
+function pm_secrets_dir_for_stack(string $stack_name): string {
+    $cfg = pm_get_config();
+    $secrets_dir = $cfg['SECRETS_DIR'] ?? '';
+    if (!empty($secrets_dir)) {
+        return rtrim($secrets_dir, '/') . '/' . $stack_name;
+    }
+    return '';
+}
+
+/**
  * Run a docker compose command on a stack.
+ * Automatically passes --env-file if secrets dir has a .env for this stack.
  * Returns [stdout, stderr, exit_code].
  */
-function pm_compose_exec(string $stack_dir, string $subcommand): array {
+function pm_compose_exec(string $stack_dir, string $subcommand, string $stack_name = ''): array {
     $compose_file = pm_find_compose_file($stack_dir);
     if (!$compose_file) {
         return ['', 'No compose file found in ' . $stack_dir, 1];
     }
 
+    // Check for .env in secrets dir
+    $env_file_flag = '';
+    if (!empty($stack_name)) {
+        $env_path = pm_resolve_env_path($stack_name, $stack_dir);
+        if (file_exists($env_path) && $env_path !== rtrim($stack_dir, '/') . '/.env') {
+            $env_file_flag = sprintf('--env-file %s', escapeshellarg($env_path));
+        }
+    }
+
     $cmd = sprintf(
-        'cd %s && docker compose -f %s %s 2>&1',
+        'cd %s && docker compose -f %s %s %s 2>&1',
         escapeshellarg(dirname($compose_file)),
         escapeshellarg(basename($compose_file)),
+        $env_file_flag,
         $subcommand
     );
 

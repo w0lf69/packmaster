@@ -21,14 +21,35 @@
 
 require_once __DIR__ . '/includes/helpers.php';
 
-// POST body comes from form-encoded 'data' field (Unraid CSRF requires form-encoded POST).
-// Fallback to php://input for CLI testing.
-$_RAW_BODY = $_POST['data'] ?? file_get_contents('php://input') ?: '';
+// ─── Auth: Bearer token OR Unraid CSRF ─────────────────────────────────
+// Browser requests use Unraid's CSRF token (form-encoded POST).
+// API requests from trusted machines use Bearer token (API_TOKEN in config).
+$_PM_CFG = pm_get_config();
+$_PM_API_AUTH = false;
+
+$auth_header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+if (preg_match('/Bearer\s+(\S+)/', $auth_header, $m)) {
+    $cfg_token = $_PM_CFG['API_TOKEN'] ?? '';
+    if (!empty($cfg_token) && hash_equals($cfg_token, $m[1])) {
+        $_PM_API_AUTH = true;
+    } else {
+        http_response_code(401);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Invalid API token']);
+        exit;
+    }
+}
+
+// POST body: form-encoded 'data' field (Unraid CSRF) or raw JSON (Bearer auth).
+if ($_PM_API_AUTH) {
+    $_RAW_BODY = file_get_contents('php://input') ?: '';
+} else {
+    $_RAW_BODY = $_POST['data'] ?? file_get_contents('php://input') ?: '';
+}
 
 // Debug log (gated by config)
-$_PM_CFG = pm_get_config();
 if (($_PM_CFG['DEBUG_LOG'] ?? 'false') === 'true') {
-    $log_line = date('H:i:s') . " {$_SERVER['REQUEST_METHOD']} action=" . ($_GET['action'] ?? 'none') . " body_len=" . strlen($_RAW_BODY) . "\n";
+    $log_line = date('H:i:s') . " {$_SERVER['REQUEST_METHOD']} action=" . ($_GET['action'] ?? 'none') . " auth=" . ($_PM_API_AUTH ? 'bearer' : 'csrf') . " body_len=" . strlen($_RAW_BODY) . "\n";
     file_put_contents('/tmp/packmaster-debug.log', $log_line, FILE_APPEND);
 }
 
@@ -74,7 +95,7 @@ switch ($action) {
             'name'         => $stack['name'],
             'path'         => $stack['path'],
             'compose_file' => $compose_file,
-            'has_env'      => file_exists($stack['path'] . '/.env'),
+            'has_env'      => file_exists(pm_resolve_env_path($name, $stack['path'])),
             'containers'   => $containers,
         ]);
         break;
@@ -100,7 +121,7 @@ switch ($action) {
             'restart' => 'restart',
             'pull'    => 'pull',
         };
-        [$stdout, $stderr, $exit] = pm_compose_exec($stack['path'], $subcmd);
+        [$stdout, $stderr, $exit] = pm_compose_exec($stack['path'], $subcmd, $name);
         echo json_encode([
             'success' => $exit === 0,
             'action'  => $action,
@@ -123,13 +144,13 @@ switch ($action) {
             break;
         }
         // Pull first
-        [$pull_out, , $pull_exit] = pm_compose_exec($stack['path'], 'pull');
+        [$pull_out, , $pull_exit] = pm_compose_exec($stack['path'], 'pull', $name);
         if ($pull_exit !== 0) {
             echo json_encode(['success' => false, 'action' => 'update', 'phase' => 'pull', 'output' => $pull_out, 'exit' => $pull_exit]);
             break;
         }
         // Then up
-        [$up_out, , $up_exit] = pm_compose_exec($stack['path'], 'up -d');
+        [$up_out, , $up_exit] = pm_compose_exec($stack['path'], 'up -d', $name);
         echo json_encode([
             'success' => $up_exit === 0,
             'action'  => 'update',
@@ -350,7 +371,7 @@ switch ($action) {
             echo json_encode(['error' => "Stack '$name' not found"]);
             break;
         }
-        $env_file = $stack['path'] . '/.env';
+        $env_file = pm_resolve_env_path($name, $stack['path']);
         echo json_encode([
             'name'    => $stack['name'],
             'exists'  => file_exists($env_file),
@@ -374,7 +395,16 @@ switch ($action) {
         $body = json_decode($_RAW_BODY, true);
         $content = $body['content'] ?? '';
 
-        $env_file = $stack['path'] . '/.env';
+        // Resolve env path: prefer secrets dir, fall back to stack dir
+        $env_file = pm_resolve_env_path($name, $stack['path']);
+        // If file doesn't exist yet and secrets dir is configured, create in secrets dir
+        if (!file_exists($env_file)) {
+            $secrets_path = pm_secrets_dir_for_stack($name);
+            if (!empty($secrets_path)) {
+                if (!is_dir($secrets_path)) mkdir($secrets_path, 0700, true);
+                $env_file = $secrets_path . '/.env';
+            }
+        }
 
         // Backup before save (if file exists)
         $backup = '';

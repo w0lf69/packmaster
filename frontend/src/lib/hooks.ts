@@ -33,13 +33,6 @@ export function useDiscover() {
   });
 }
 
-export function useRegistries() {
-  return useQuery({
-    queryKey: ["registries"],
-    queryFn: api.registries,
-  });
-}
-
 export function useStackAction(onActionComplete?: (result: { action: string; name: string; success: boolean; output: string }) => void) {
   const qc = useQueryClient();
   return useMutation({
@@ -167,8 +160,3 @@ export function useCheckAllUpdates() {
   });
 }
 
-export function useWatchtowerCheck() {
-  return useMutation({
-    mutationFn: () => api.watchtowerCheck(),
-  });
-}

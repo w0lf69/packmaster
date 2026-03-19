@@ -78,6 +78,7 @@ export function EnvEditor({
   const contentRef = useRef("");
   const dirtyRef = useRef(false);
   const saveRef = useRef(() => {});
+  const [prevSource, setPrevSource] = useState(data?.content);
 
   useEffect(() => { dirtyRef.current = dirty; }, [dirty]);
 
@@ -108,6 +109,12 @@ export function EnvEditor({
     onBack();
   }, [onBack]);
 
+  // Reset dirty when source content changes (render-time adjustment)
+  if (data?.content !== undefined && data.content !== prevSource) {
+    setPrevSource(data.content);
+    if (dirty) setDirty(false);
+  }
+
   useEffect(() => {
     if (!data || !editorContainerRef.current) return;
     if (viewRef.current) {
@@ -116,7 +123,6 @@ export function EnvEditor({
     }
 
     contentRef.current = data.content;
-    setDirty(false);
 
     const state = EditorState.create({
       doc: data.content,
@@ -153,6 +159,7 @@ export function EnvEditor({
     viewRef.current = view;
 
     return () => { view.destroy(); viewRef.current = null; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps are intentionally the specific properties, not the full data object
   }, [data?.content, data?.exists, handleSave]);
 
   if (isLoading) {

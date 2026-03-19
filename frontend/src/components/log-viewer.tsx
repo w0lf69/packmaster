@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useStack } from "../lib/hooks.ts";
 import { api } from "../lib/api.ts";
 
@@ -14,14 +14,21 @@ export function LogViewer({
   const [paused, setPaused] = useState(false);
   const [connected, setConnected] = useState(true);
   const [container, setContainer] = useState("");
+  const [reconnectKey, setReconnectKey] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const retryCountRef = useRef(0);
 
-  const connect = useCallback(() => {
-    eventSourceRef.current?.close();
+  // Reset state when connection params change (render-time adjustment)
+  const [prevParams, setPrevParams] = useState({ name, container, reconnectKey });
+  if (name !== prevParams.name || container !== prevParams.container || reconnectKey !== prevParams.reconnectKey) {
+    setPrevParams({ name, container, reconnectKey });
     setLines([]);
     setConnected(true);
+  }
+
+  useEffect(() => {
+    retryCountRef.current = 0;
 
     const url = api.logsUrl(name, container || undefined);
     const es = new EventSource(url);
@@ -57,12 +64,12 @@ export function LogViewer({
         setLines((prev) => [...prev, "[Stream ended — stack may be stopped]"]);
       }
     };
-  }, [name, container]);
 
-  useEffect(() => {
-    connect();
-    return () => eventSourceRef.current?.close();
-  }, [connect]);
+    return () => {
+      es.close();
+      eventSourceRef.current = null;
+    };
+  }, [name, container, reconnectKey]);
 
   // Auto-scroll
   useEffect(() => {
@@ -102,7 +109,7 @@ export function LogViewer({
 
           {!connected && (
             <button
-              onClick={connect}
+              onClick={() => setReconnectKey((k) => k + 1)}
               className="px-3 py-1 text-xs font-medium bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors"
             >
               Reconnect
