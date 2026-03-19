@@ -2,12 +2,12 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "packmaster">
 <!ENTITY author      "OPUS &amp; Dino (w0lf69)">
-<!ENTITY version     "2026.03.19a">
+<!ENTITY version     "2026.03.19b">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/w0lf69/packmaster/main/packmaster.plg">
 <!ENTITY support     "https://github.com/w0lf69/packmaster">
 <!ENTITY project     "https://github.com/w0lf69/packmaster">
-<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.03.19a/packmaster-2026.03.19a.txz">
-<!ENTITY txzSHA256   "e64af4cf15164b838c1be93731bfb94366c9b8bd03a38730af53b0280282da23">
+<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.03.19b/packmaster-2026.03.19b.txz">
+<!ENTITY txzSHA256   "2683aaa60be8a4efff4638ba091850a1b1e0f2bb370a61b35c5dc5ed7f92148e">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
@@ -21,7 +21,7 @@
     launch="Docker/PackMaster">
 
 <CHANGES>
-### 2026.03.19a
+### 2026.03.19b
 - Standalone API server: PackMaster API accessible on dedicated port (default 9444)
 - Bearer token auth bypasses Unraid's emhttpd login wall for programmatic access
 - Configurable API_PORT in PackMaster settings

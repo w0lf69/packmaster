@@ -17,6 +17,7 @@
  * POST ?action=unregister   — remove stack from registry
  * GET  ?action=discover     — scan directories for compose files
  * GET  ?action=registries   — show configured Docker registries
+ * POST ?action=migrate&name=X — migrate stack from Dockge to PackMaster paths
  */
 
 require_once __DIR__ . '/includes/helpers.php';
@@ -497,6 +498,122 @@ switch ($action) {
             break;
         }
         echo json_encode(pm_watchtower_api_trigger($wt['container_ip'], $token));
+        break;
+
+    // ─── Stack Migration ──────────────────────────────────────────────
+
+    case 'migrate':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['error' => 'POST required']);
+            break;
+        }
+        $stack = pm_validate_stack($name, $registry);
+        if (!$stack) {
+            http_response_code(404);
+            echo json_encode(['error' => "Stack '$name' not found"]);
+            break;
+        }
+
+        $cfg = pm_get_config();
+        $stacks_dir = rtrim($cfg['SCAN_DIRS'] ?? '/mnt/user/packmaster/stacks', ',');
+        // Use the first scan dir as the migration target
+        $stacks_dir = trim(explode(',', $stacks_dir)[0]);
+        $secrets_dir = $cfg['SECRETS_DIR'] ?? '/mnt/user/packmaster/secrets';
+
+        $new_stack_dir = rtrim($stacks_dir, '/') . '/' . $name;
+        $new_secrets_dir = rtrim($secrets_dir, '/') . '/' . $name;
+        $old_path = $stack['path'];
+
+        // Already migrated?
+        if (realpath($old_path) === realpath($new_stack_dir)) {
+            echo json_encode(['success' => true, 'action' => 'migrate', 'stack' => $name, 'skipped' => true, 'reason' => 'Already at target path']);
+            break;
+        }
+
+        $steps = [];
+
+        // 1. Find and copy compose file
+        $compose_file = pm_find_compose_file($old_path);
+        if (!$compose_file) {
+            http_response_code(400);
+            echo json_encode(['error' => "No compose file found in $old_path"]);
+            break;
+        }
+
+        if (!is_dir($new_stack_dir)) {
+            mkdir($new_stack_dir, 0755, true);
+        }
+        $new_compose = $new_stack_dir . '/' . basename($compose_file);
+        copy($compose_file, $new_compose);
+        $steps[] = 'compose copied to ' . $new_compose;
+
+        // 2. Copy .env to secrets dir if it exists
+        $old_env = rtrim($old_path, '/') . '/.env';
+        // Also check if already in secrets dir
+        $existing_secrets_env = rtrim($secrets_dir, '/') . '/' . $name . '/.env';
+        $env_migrated = false;
+
+        if (file_exists($existing_secrets_env)) {
+            $steps[] = '.env already in secrets dir';
+            $env_migrated = true;
+        } elseif (file_exists($old_env)) {
+            if (!is_dir($new_secrets_dir)) {
+                mkdir($new_secrets_dir, 0700, true);
+            }
+            copy($old_env, $new_secrets_dir . '/.env');
+            $steps[] = '.env copied to ' . $new_secrets_dir . '/.env';
+            $env_migrated = true;
+        } else {
+            $steps[] = 'no .env to migrate';
+        }
+
+        // 3. Down from old path
+        [$down_out, , $down_exit] = pm_compose_exec($old_path, 'down', $name);
+        if ($down_exit !== 0) {
+            echo json_encode([
+                'success' => false, 'action' => 'migrate', 'stack' => $name,
+                'phase' => 'down', 'output' => $down_out, 'steps' => $steps,
+            ]);
+            break;
+        }
+        $steps[] = 'down from old path (exit 0)';
+
+        // 4. Up from new path
+        [$up_out, , $up_exit] = pm_compose_exec($new_stack_dir, 'up -d', $name);
+        if ($up_exit !== 0) {
+            // Rollback: bring old path back up
+            pm_compose_exec($old_path, 'up -d', $name);
+            echo json_encode([
+                'success' => false, 'action' => 'migrate', 'stack' => $name,
+                'phase' => 'up', 'output' => $up_out, 'steps' => $steps,
+                'rollback' => 'old path brought back up',
+            ]);
+            break;
+        }
+        $steps[] = 'up from new path (exit 0)';
+
+        // 5. Update registry
+        foreach ($registry['stacks'] as &$s) {
+            if ($s['name'] === $name) {
+                $s['path'] = $new_stack_dir;
+                break;
+            }
+        }
+        unset($s);
+        pm_write_registry($registry);
+        $steps[] = 'registry updated to ' . $new_stack_dir;
+
+        echo json_encode([
+            'success'   => true,
+            'action'    => 'migrate',
+            'stack'     => $name,
+            'old_path'  => $old_path,
+            'new_path'  => $new_stack_dir,
+            'env_migrated' => $env_migrated,
+            'steps'     => $steps,
+            'output'    => $down_out . "\n" . $up_out,
+        ]);
         break;
 
     default:
