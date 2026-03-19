@@ -2,12 +2,12 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "packmaster">
 <!ENTITY author      "OPUS &amp; Dino (w0lf69)">
-<!ENTITY version     "2026.03.04d">
+<!ENTITY version     "2026.03.19">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/w0lf69/packmaster/main/packmaster.plg">
 <!ENTITY support     "https://github.com/w0lf69/packmaster">
 <!ENTITY project     "https://github.com/w0lf69/packmaster">
-<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.03.04d/packmaster-2026.03.04d.txz">
-<!ENTITY txzSHA256   "e9340022481b3f7ed934c2d58e7ca896fb65689166f7811ba9a21a4c332e4b0d">
+<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.03.19/packmaster-2026.03.19.txz">
+<!ENTITY txzSHA256   "a31481ee0b8e061abdb376b7aa4db358f8fc91950e97890b9b0028e64f8616eb">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
@@ -21,6 +21,16 @@
     launch="Docker/PackMaster">
 
 <CHANGES>
+### 2026.03.19
+- Bearer token API auth for programmatic access from trusted machines
+- Secrets path split: .env files in separate SECRETS_DIR, isolated from compose files
+- docker compose --env-file auto-applied when secrets dir configured
+- Default paths: /mnt/user/packmaster/stacks + /mnt/user/packmaster/secrets
+- ESLint + knip dev tools, React 19 hooks compliance
+- Fix setState-in-effect warnings (compose editor, env editor, log viewer)
+- Fix CodeMirror dependency declarations
+- Remove unused hooks and unexport internal types
+
 ### 2026.03.04d
 - Native Docker Compose management for Unraid
 - Modern React dashboard with real-time stack monitoring
@@ -77,7 +87,7 @@ fi
 
 # Create default registry if first install
 if [[ ! -f &pluginLOC;/registry.json ]]; then
-    echo '{"stacks":[],"scan_dirs":["/mnt/user/appdata/dockge/stacks"]}' > &pluginLOC;/registry.json
+    echo '{"stacks":[],"scan_dirs":["/mnt/user/packmaster/stacks"]}' > &pluginLOC;/registry.json
 fi
 
 echo ""
