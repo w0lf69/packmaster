@@ -41,6 +41,32 @@ if (preg_match('/Bearer\s+(\S+)/', $auth_header, $m)) {
     }
 }
 
+// CSRF protection for non-Bearer POST requests (browser path).
+// Validates Origin header matches the server to prevent cross-site request forgery.
+if (!$_PM_API_AUTH && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    $referer = $_SERVER['HTTP_REFERER'] ?? '';
+    $server_host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '';
+
+    // Extract host from Origin or Referer
+    $request_host = '';
+    if (!empty($origin)) {
+        $request_host = parse_url($origin, PHP_URL_HOST) ?? '';
+    } elseif (!empty($referer)) {
+        $request_host = parse_url($referer, PHP_URL_HOST) ?? '';
+    }
+
+    // Strip port for comparison
+    $server_base = preg_replace('/:\d+$/', '', $server_host);
+
+    if (empty($request_host) || $request_host !== $server_base) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'CSRF validation failed']);
+        exit;
+    }
+}
+
 // POST body: form-encoded 'data' field (Unraid CSRF) or raw JSON (Bearer auth).
 if ($_PM_API_AUTH) {
     $_RAW_BODY = file_get_contents('php://input') ?: '';
@@ -260,6 +286,23 @@ switch ($action) {
             break;
         }
 
+        // Validate YAML via docker compose before writing
+        $tmp = tempnam('/tmp', 'pm-compose-');
+        file_put_contents($tmp, $content);
+        $validate_cmd = sprintf(
+            'docker compose -f %s config --quiet 2>&1',
+            escapeshellarg($tmp)
+        );
+        $validate_out = trim(shell_exec($validate_cmd) ?? '');
+        $validate_ok = empty($validate_out);
+        unlink($tmp);
+
+        if (!$validate_ok) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Invalid compose YAML', 'detail' => $validate_out]);
+            break;
+        }
+
         // Backup before save
         $backup = $compose_file . '.bak.' . date('Ymd_His');
         copy($compose_file, $backup);
@@ -286,6 +329,14 @@ switch ($action) {
         foreach ($items as $item) {
             $path = $item['path'] ?? '';
             $stackName = $item['name'] ?? basename($path);
+
+            // Resolve real path and restrict to /mnt/user/ to prevent registering system dirs
+            $real = realpath($path);
+            if ($real === false || !str_starts_with($real, '/mnt/user/')) {
+                $errors[] = "Path must be under /mnt/user/: $path";
+                continue;
+            }
+            $path = $real;
 
             if (!is_dir($path)) { $errors[] = "Not found: $path"; continue; }
             if (!pm_find_compose_file($path)) { $errors[] = "No compose file: $path"; continue; }

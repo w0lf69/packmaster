@@ -113,6 +113,13 @@ function pm_secrets_dir_for_stack(string $stack_name): string {
  * Returns [stdout, stderr, exit_code].
  */
 function pm_compose_exec(string $stack_dir, string $subcommand, string $stack_name = ''): array {
+    // Allowlist: only permit known docker compose subcommands
+    $allowed = ['up', 'down', 'restart', 'pull', 'config', 'ps', 'logs'];
+    $parts = preg_split('/\s+/', trim($subcommand), 2);
+    if (!in_array($parts[0], $allowed, true)) {
+        return ['', 'Blocked compose subcommand: ' . $parts[0], 1];
+    }
+
     $compose_file = pm_find_compose_file($stack_dir);
     if (!$compose_file) {
         return ['', 'No compose file found in ' . $stack_dir, 1];
