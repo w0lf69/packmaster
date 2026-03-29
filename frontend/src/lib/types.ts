@@ -40,13 +40,21 @@ export interface ComposeFile {
 
 export interface ActionResult {
   success: boolean;
-  action: string;
-  stack: string;
-  output: string;
-  exit: number;
+  action?: string;
+  stack?: string;
+  output?: string;
+  exit?: number;
   phase?: string;
   backup?: string;
   message?: string;
+  // Registration fields
+  added?: string[];
+  errors?: string[];
+  count?: number;
+  // Write fields
+  bytes?: number;
+  created?: boolean;
+  error?: string;
 }
 
 export interface DiscoveredStack {

@@ -1,6 +1,6 @@
 import { useDiscover, useRegisterStack, useRegisterBulk } from "../lib/hooks.ts";
 
-export function StackDiscovery({ onBack }: { onBack: () => void }) {
+export function StackDiscovery({ onBack, onToast }: { onBack: () => void; onToast?: (msg: string, type: "success" | "error" | "info") => void }) {
   const { data, isLoading, error, refetch } = useDiscover();
   const register = useRegisterStack();
   const registerBulk = useRegisterBulk();
@@ -61,7 +61,21 @@ export function StackDiscovery({ onBack }: { onBack: () => void }) {
                   <p className="text-xs text-slate-500 font-mono mt-0.5">{s.path}</p>
                 </div>
                 <button
-                  onClick={() => register.mutate({ path: s.path, name: s.name })}
+                  onClick={() => register.mutate(
+                    { path: s.path, name: s.name },
+                    {
+                      onSuccess: (data) => {
+                        if (data.count && data.count > 0) {
+                          onToast?.(`Registered: ${data.added?.join(", ") ?? s.name}`, "success");
+                        } else {
+                          onToast?.(data.errors?.[0] ?? "Registration failed", "error");
+                        }
+                      },
+                      onError: (err) => {
+                        onToast?.(err instanceof Error ? err.message : "Registration failed", "error");
+                      },
+                    }
+                  )}
                   disabled={register.isPending}
                   className="px-3 py-1 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors disabled:opacity-50"
                 >
@@ -74,7 +88,24 @@ export function StackDiscovery({ onBack }: { onBack: () => void }) {
           {unregistered.length > 1 && (
             <button
               onClick={() => {
-                registerBulk.mutate(unregistered.map((s) => ({ path: s.path, name: s.name })));
+                registerBulk.mutate(
+                  unregistered.map((s) => ({ path: s.path, name: s.name })),
+                  {
+                    onSuccess: (data) => {
+                      if (data.count && data.count > 0) {
+                        onToast?.(`Registered ${data.count} stacks`, "success");
+                      } else {
+                        onToast?.(data.errors?.[0] ?? "Bulk registration failed", "error");
+                      }
+                      if (data.errors && data.errors.length > 0 && data.count && data.count > 0) {
+                        onToast?.(`${data.errors.length} failed: ${data.errors[0]}`, "error");
+                      }
+                    },
+                    onError: (err) => {
+                      onToast?.(err instanceof Error ? err.message : "Bulk registration failed", "error");
+                    },
+                  }
+                );
               }}
               disabled={registerBulk.isPending}
               className="mt-3 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors disabled:opacity-50"

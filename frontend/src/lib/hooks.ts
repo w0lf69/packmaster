@@ -48,7 +48,7 @@ export function useStackAction(onActionComplete?: (result: { action: string; nam
           qc.invalidateQueries({ queryKey: ["update-cache"] });
         });
       }
-      onActionComplete?.({ action: vars.action, name: vars.name, success: data.success, output: data.output });
+      onActionComplete?.({ action: vars.action, name: vars.name, success: data.success, output: data.output ?? "" });
     },
   });
 }

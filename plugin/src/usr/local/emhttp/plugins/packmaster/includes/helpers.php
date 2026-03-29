@@ -23,10 +23,11 @@ function pm_read_registry(): array {
 /**
  * Write the stack registry to flash.
  */
-function pm_write_registry(array $registry): void {
+function pm_write_registry(array $registry): bool {
     $dir = dirname(REGISTRY_FILE);
     if (!is_dir($dir)) mkdir($dir, 0700, true);
-    file_put_contents(REGISTRY_FILE, json_encode($registry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    $bytes = file_put_contents(REGISTRY_FILE, json_encode($registry, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+    return $bytes !== false;
 }
 
 /**

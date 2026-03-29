@@ -65,9 +65,11 @@ const packMasterTheme = EditorView.theme({
 export function EnvEditor({
   name,
   onBack,
+  onToast,
 }: {
   name: string;
   onBack: () => void;
+  onToast?: (msg: string, type: "success" | "error" | "info") => void;
 }) {
   const { data, isLoading, error } = useEnv(name);
   const save = useSaveEnv();
@@ -86,10 +88,26 @@ export function EnvEditor({
   useEffect(() => {
     saveRef.current = () => {
       if (!dirtyRef.current || save.isPending) return;
-      save.mutate({ name, content: contentRef.current });
       setDirty(false);
+      save.mutate(
+        { name, content: contentRef.current },
+        {
+          onSuccess: (data) => {
+            if (data.success) {
+              onToast?.(data.created ? "Created .env" : `Saved .env${data.backup ? ` (backup: ${data.backup})` : ""}`, "success");
+            } else {
+              setDirty(true);
+              onToast?.(data.error ?? "Save failed — check server logs", "error");
+            }
+          },
+          onError: (err) => {
+            setDirty(true);
+            onToast?.(err instanceof Error ? err.message : "Save failed", "error");
+          },
+        }
+      );
     };
-  }, [name, save]);
+  }, [name, save, onToast]);
 
   const handleSave = useCallback(() => {
     saveRef.current();

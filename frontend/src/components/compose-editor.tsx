@@ -47,9 +47,11 @@ const packMasterTheme = EditorView.theme({
 export function ComposeEditor({
   name,
   onBack,
+  onToast,
 }: {
   name: string;
   onBack: () => void;
+  onToast?: (msg: string, type: "success" | "error" | "info") => void;
 }) {
   const { data, isLoading, error } = useCompose(name);
   const save = useSaveCompose();
@@ -71,10 +73,26 @@ export function ComposeEditor({
   useEffect(() => {
     saveRef.current = () => {
       if (!dirtyRef.current || save.isPending) return;
-      save.mutate({ name, content: contentRef.current });
       setDirty(false);
+      save.mutate(
+        { name, content: contentRef.current },
+        {
+          onSuccess: (data) => {
+            if (data.success) {
+              onToast?.(`Saved${data.backup ? ` (backup: ${data.backup})` : ""}`, "success");
+            } else {
+              setDirty(true);
+              onToast?.(data.error ?? "Save failed — check server logs", "error");
+            }
+          },
+          onError: (err) => {
+            setDirty(true);
+            onToast?.(err instanceof Error ? err.message : "Save failed", "error");
+          },
+        }
+      );
     };
-  }, [name, save]);
+  }, [name, save, onToast]);
 
   const handleSave = useCallback(() => {
     saveRef.current();

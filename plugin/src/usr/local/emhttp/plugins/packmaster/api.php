@@ -307,8 +307,13 @@ switch ($action) {
         $backup = $compose_file . '.bak.' . date('Ymd_His');
         copy($compose_file, $backup);
 
-        file_put_contents($compose_file, $content);
-        echo json_encode(['success' => true, 'backup' => basename($backup)]);
+        $bytes = file_put_contents($compose_file, $content);
+        if ($bytes === false) {
+            http_response_code(500);
+            echo json_encode(['error' => "Write failed: $compose_file", 'success' => false]);
+            break;
+        }
+        echo json_encode(['success' => true, 'backup' => basename($backup), 'bytes' => $bytes]);
         break;
 
     case 'register':
@@ -340,7 +345,10 @@ switch ($action) {
 
             if (!is_dir($path)) { $errors[] = "Not found: $path"; continue; }
             if (!pm_find_compose_file($path)) { $errors[] = "No compose file: $path"; continue; }
-            if (in_array($path, $registered_paths)) { continue; } // skip dupes silently
+            if (in_array($path, $registered_paths)) {
+                $errors[] = "Already registered: $path";
+                continue;
+            }
 
             // Prevent name collisions — auto-suffix if needed
             $stackName = pm_unique_name($stackName, $registry);
@@ -350,8 +358,13 @@ switch ($action) {
             $added[] = $stackName;
         }
 
-        pm_write_registry($registry);
-        echo json_encode(['success' => true, 'added' => $added, 'errors' => $errors, 'count' => count($added)]);
+        if (!pm_write_registry($registry)) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Failed to write registry', 'added' => $added]);
+            break;
+        }
+        $ok = count($added) > 0 || count($errors) === 0;
+        echo json_encode(['success' => $ok, 'added' => $added, 'errors' => $errors, 'count' => count($added)]);
         break;
 
     case 'unregister':
@@ -364,7 +377,11 @@ switch ($action) {
             $registry['stacks'],
             fn($s) => $s['name'] !== $name
         ));
-        pm_write_registry($registry);
+        if (!pm_write_registry($registry)) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Failed to write registry']);
+            break;
+        }
         echo json_encode(['success' => true]);
         break;
 
@@ -445,7 +462,17 @@ switch ($action) {
         }
 
         $body = json_decode($_RAW_BODY, true);
-        $content = $body['content'] ?? '';
+        if (!is_array($body)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid JSON body']);
+            break;
+        }
+        $content = $body['content'] ?? null;
+        if ($content === null || $content === '') {
+            http_response_code(400);
+            echo json_encode(['error' => 'Empty content — refusing to save empty .env']);
+            break;
+        }
 
         // Resolve env path: prefer secrets dir, fall back to stack dir
         $env_file = pm_resolve_env_path($name, $stack['path']);
@@ -453,7 +480,11 @@ switch ($action) {
         if (!file_exists($env_file)) {
             $secrets_path = pm_secrets_dir_for_stack($name);
             if (!empty($secrets_path)) {
-                if (!is_dir($secrets_path)) mkdir($secrets_path, 0700, true);
+                if (!is_dir($secrets_path) && !mkdir($secrets_path, 0700, true)) {
+                    http_response_code(500);
+                    echo json_encode(['error' => "Failed to create secrets directory: $secrets_path"]);
+                    break;
+                }
                 $env_file = $secrets_path . '/.env';
             }
         }
@@ -465,8 +496,13 @@ switch ($action) {
             copy($env_file, $backup);
         }
 
-        file_put_contents($env_file, $content);
-        echo json_encode(['success' => true, 'backup' => $backup ? basename($backup) : null, 'created' => !$backup]);
+        $bytes = file_put_contents($env_file, $content);
+        if ($bytes === false) {
+            http_response_code(500);
+            echo json_encode(['error' => "Write failed: $env_file", 'success' => false]);
+            break;
+        }
+        echo json_encode(['success' => true, 'backup' => $backup ? basename($backup) : null, 'created' => !$backup, 'bytes' => $bytes]);
         break;
 
     // ─── Watchtower Integration ────────────────────────────────────────
@@ -666,7 +702,11 @@ switch ($action) {
             }
         }
         unset($s);
-        pm_write_registry($registry);
+        if (!pm_write_registry($registry)) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'action' => 'migrate', 'stack' => $name, 'error' => 'Failed to write registry', 'steps' => $steps]);
+            break;
+        }
         $steps[] = 'registry updated to ' . $new_stack_dir;
 
         echo json_encode([

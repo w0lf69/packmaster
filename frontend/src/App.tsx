@@ -84,12 +84,14 @@ export default function App() {
           <ComposeEditor
             name={selectedStack}
             onBack={() => navigate("detail", selectedStack)}
+            onToast={addToast}
           />
         )}
         {view === "env" && (
           <EnvEditor
             name={selectedStack}
             onBack={() => navigate("detail", selectedStack)}
+            onToast={addToast}
           />
         )}
         {view === "logs" && (
@@ -99,7 +101,7 @@ export default function App() {
           />
         )}
         {view === "discover" && (
-          <StackDiscovery onBack={() => navigate("dashboard")} />
+          <StackDiscovery onBack={() => navigate("dashboard")} onToast={addToast} />
         )}
       </main>
 
