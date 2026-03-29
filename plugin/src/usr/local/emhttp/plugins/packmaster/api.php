@@ -290,11 +290,17 @@ switch ($action) {
         $tmp = tempnam('/tmp', 'pm-compose-');
         file_put_contents($tmp, $content);
         $validate_cmd = sprintf(
-            'docker compose -f %s config --quiet 2>&1',
+            'docker compose -f %s config --quiet 2>/dev/null',
             escapeshellarg($tmp)
         );
-        $validate_out = trim(shell_exec($validate_cmd) ?? '');
-        $validate_ok = empty($validate_out);
+        $validate_out = '';
+        exec($validate_cmd, $validate_lines, $validate_exit);
+        $validate_ok = $validate_exit === 0;
+        if (!$validate_ok) {
+            // Collect stderr for the error detail
+            $stderr_cmd = sprintf('docker compose -f %s config --quiet 2>&1 1>/dev/null', escapeshellarg($tmp));
+            $validate_out = trim(shell_exec($stderr_cmd) ?? '');
+        }
         unlink($tmp);
 
         if (!$validate_ok) {
@@ -335,20 +341,21 @@ switch ($action) {
             $path = $item['path'] ?? '';
             $stackName = $item['name'] ?? basename($path);
 
-            // Resolve real path and restrict to /mnt/user/ to prevent registering system dirs
-            $real = realpath($path);
-            if ($real === false || !str_starts_with($real, '/mnt/user/')) {
+            // Normalize path and restrict to /mnt/user/ — let Unraid handle FUSE/exclusive shares.
+            // Do NOT use realpath(): it follows UnionFS mounts to physical disk paths (/mnt/cache/...)
+            // which breaks the /mnt/user/ prefix check even for valid exclusive share paths.
+            $path = rtrim(preg_replace('#/+#', '/', $path), '/');
+            if (!str_starts_with($path, '/mnt/user/')) {
                 $errors[] = "Path must be under /mnt/user/: $path";
                 continue;
             }
-            $path = $real;
 
-            if (!is_dir($path)) { $errors[] = "Not found: $path"; continue; }
-            if (!pm_find_compose_file($path)) { $errors[] = "No compose file: $path"; continue; }
             if (in_array($path, $registered_paths)) {
                 $errors[] = "Already registered: $path";
                 continue;
             }
+            if (!is_dir($path)) { $errors[] = "Not found: $path"; continue; }
+            if (!pm_find_compose_file($path)) { $errors[] = "No compose file: $path"; continue; }
 
             // Prevent name collisions — auto-suffix if needed
             $stackName = pm_unique_name($stackName, $registry);
