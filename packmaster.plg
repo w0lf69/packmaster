@@ -2,12 +2,12 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "packmaster">
 <!ENTITY author      "OPUS &amp; Dino (w0lf69)">
-<!ENTITY version     "2026.03.29a">
+<!ENTITY version     "2026.04.02">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/w0lf69/packmaster/main/packmaster.plg">
 <!ENTITY support     "https://github.com/w0lf69/packmaster">
 <!ENTITY project     "https://github.com/w0lf69/packmaster">
-<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.03.29a/packmaster-2026.03.29a.txz">
-<!ENTITY txzSHA256   "67689376a8ed508a54842868c7dd9d64d27b1b46fc9af60ffb0c1c97a0d181c2">
+<!ENTITY txzURL      "https://github.com/w0lf69/packmaster/releases/download/v2026.04.02/packmaster-2026.04.02.txz">
+<!ENTITY txzSHA256   "a3b3de7ea60eaa574125edf412effc2a4dbbb2b4581ac43d068c8912fcf10a38">
 <!ENTITY pluginLOC   "/boot/config/plugins/&name;">
 <!ENTITY emhttpLOC   "/usr/local/emhttp/plugins/&name;">
 ]>
@@ -21,7 +21,7 @@
     launch="Docker/PackMaster">
 
 <CHANGES>
-### 2026.03.29a
+### 2026.04.02
 - Security hardening: compose subcommand allowlist in pm_compose_exec
 - CSRF origin validation on browser POST requests (Bearer API path unaffected)
 - YAML validation via docker compose config before saving compose files
