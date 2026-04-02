@@ -19,11 +19,11 @@ $cfg = parse_plugin_cfg($plugin);
 <input type="hidden" name="#file" value="packmaster/packmaster.cfg">
 
 _(Scan Directories)_:
-: <input type="text" name="SCAN_DIRS" value="<?=htmlspecialchars($cfg['SCAN_DIRS'] ?? '/mnt/user/appdata/dockge/stacks')?>" size="60">
+: <input type="text" name="SCAN_DIRS" value="<?=htmlspecialchars($cfg['SCAN_DIRS'] ?? '/mnt/user/packmaster/stacks')?>" size="60">
 
 <blockquote class="inline_help">
 Comma-separated list of directories to scan when discovering new Docker Compose stacks.
-Default: /mnt/user/appdata/dockge/stacks
+Default: /mnt/user/packmaster/stacks
 </blockquote>
 
 _(Debug Logging)_:

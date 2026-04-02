@@ -286,19 +286,25 @@ switch ($action) {
             break;
         }
 
-        // Validate YAML via docker compose before writing
+        // Validate YAML via docker compose before writing.
+        // Use --project-directory so relative refs (build, env_file, volumes) resolve
+        // against the stack's real directory, not /tmp.
         $tmp = tempnam('/tmp', 'pm-compose-');
         file_put_contents($tmp, $content);
         $validate_cmd = sprintf(
-            'docker compose -f %s config --quiet 2>/dev/null',
+            'docker compose --project-directory %s -f %s config --quiet 2>/dev/null',
+            escapeshellarg($stack['path']),
             escapeshellarg($tmp)
         );
         $validate_out = '';
         exec($validate_cmd, $validate_lines, $validate_exit);
         $validate_ok = $validate_exit === 0;
         if (!$validate_ok) {
-            // Collect stderr for the error detail
-            $stderr_cmd = sprintf('docker compose -f %s config --quiet 2>&1 1>/dev/null', escapeshellarg($tmp));
+            $stderr_cmd = sprintf(
+                'docker compose --project-directory %s -f %s config --quiet 2>&1 1>/dev/null',
+                escapeshellarg($stack['path']),
+                escapeshellarg($tmp)
+            );
             $validate_out = trim(shell_exec($stderr_cmd) ?? '');
         }
         unlink($tmp);
@@ -344,7 +350,15 @@ switch ($action) {
             // Normalize path and restrict to /mnt/user/ — let Unraid handle FUSE/exclusive shares.
             // Do NOT use realpath(): it follows UnionFS mounts to physical disk paths (/mnt/cache/...)
             // which breaks the /mnt/user/ prefix check even for valid exclusive share paths.
+            // DO collapse .. segments manually to prevent traversal out of /mnt/user/.
             $path = rtrim(preg_replace('#/+#', '/', $path), '/');
+            $parts = [];
+            foreach (explode('/', $path) as $seg) {
+                if ($seg === '.' || $seg === '') continue;
+                if ($seg === '..') { array_pop($parts); continue; }
+                $parts[] = $seg;
+            }
+            $path = '/' . implode('/', $parts);
             if (!str_starts_with($path, '/mnt/user/')) {
                 $errors[] = "Path must be under /mnt/user/: $path";
                 continue;

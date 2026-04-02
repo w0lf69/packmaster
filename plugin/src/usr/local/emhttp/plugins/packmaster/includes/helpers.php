@@ -54,6 +54,35 @@ function pm_find_compose_file(string $dir): ?string {
 }
 
 /**
+ * Extract image names from a compose file without running containers.
+ * Uses `docker compose config` to resolve the full config, then pulls image fields.
+ * Returns [image => service_name] map.
+ */
+function pm_compose_images(string $stackPath): array {
+    $compose_file = pm_find_compose_file($stackPath);
+    if (!$compose_file) return [];
+
+    $cmd = sprintf(
+        'docker compose -f %s config --format json 2>/dev/null',
+        escapeshellarg($compose_file)
+    );
+    $output = trim(shell_exec($cmd) ?? '');
+    if (empty($output)) return [];
+
+    $config = json_decode($output, true);
+    if (!$config || empty($config['services'])) return [];
+
+    $images = [];
+    foreach ($config['services'] as $svcName => $svc) {
+        $img = $svc['image'] ?? '';
+        if (!empty($img) && !isset($images[$img])) {
+            $images[$img] = $svcName;
+        }
+    }
+    return $images;
+}
+
+/**
  * Get stack status via docker compose ps.
  * Returns parsed container info array.
  */
@@ -307,18 +336,27 @@ function pm_write_update_cache(array $cache): void {
  */
 function pm_check_stack_updates(string $stackName, string $stackPath): array {
     $containers = pm_stack_status($stackPath);
-    if (empty($containers)) {
-        return ['stack' => $stackName, 'updates' => [], 'checked_at' => date('c'), 'has_updates' => false];
+
+    // If stack has running containers, use their live images.
+    // Otherwise, parse images from the compose file so stopped/new stacks
+    // aren't falsely reported as "up to date".
+    if (!empty($containers)) {
+        $images = [];
+        foreach ($containers as $c) {
+            $img = $c['Image'] ?? '';
+            $svc = $c['Service'] ?? $c['Name'] ?? '';
+            if (!empty($img) && !isset($images[$img])) {
+                $images[$img] = $svc;
+            }
+        }
+    } else {
+        $images = pm_compose_images($stackPath);
     }
 
     $updates = [];
-    $seen = [];
-    foreach ($containers as $c) {
-        $image = $c['Image'] ?? '';
-        if (empty($image) || isset($seen[$image])) continue;
-        $seen[$image] = true;
+    foreach ($images as $image => $service) {
         $check = pm_check_image_update($image);
-        $check['service'] = $c['Service'] ?? $c['Name'] ?? '';
+        $check['service'] = $service;
         $updates[] = $check;
     }
 
@@ -348,18 +386,22 @@ function pm_watchtower_api_trigger(string $containerIp, string $token): array {
 
     $url = "http://{$containerIp}:8080/v1/update";
     $cmd = sprintf(
-        'curl -s -m 15 -X POST -H %s %s 2>&1',
+        'curl -s -o /dev/stdout -w "\n%%{http_code}" -m 15 -X POST -H %s %s 2>&1',
         escapeshellarg("Authorization: Bearer {$token}"),
         escapeshellarg($url)
     );
 
-    $output = trim(shell_exec($cmd) ?? '');
+    $raw = trim(shell_exec($cmd) ?? '');
+    $lines = explode("\n", $raw);
+    $httpCode = (int) array_pop($lines);
+    $body = implode("\n", $lines);
 
-    // Watchtower returns 200 with empty body on success
-    $isError = str_contains($output, 'curl:') || str_contains($output, 'Connection refused');
+    $transportError = str_contains($raw, 'curl:') || str_contains($raw, 'Connection refused');
+    $success = !$transportError && $httpCode >= 200 && $httpCode < 300;
 
     return [
-        'success'  => !$isError,
-        'response' => $output ?: '(empty — update triggered)',
+        'success'   => $success,
+        'http_code' => $transportError ? null : $httpCode,
+        'response'  => $success ? ($body ?: '(empty — update triggered)') : ($body ?: "HTTP {$httpCode}"),
     ];
 }
