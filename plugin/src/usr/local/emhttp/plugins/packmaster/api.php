@@ -176,8 +176,12 @@ switch ($action) {
             echo json_encode(['success' => false, 'action' => 'update', 'phase' => 'pull', 'output' => $pull_out, 'exit' => $pull_exit]);
             break;
         }
-        // Then up
-        [$up_out, , $up_exit] = pm_compose_exec($stack['path'], 'up -d', $name);
+        // Then up — force-recreate so containers orphaned from compose
+        // (empty com.docker.compose.project label) get replaced instead of
+        // colliding by name. Without this, ?action=update pulls but leaves
+        // the old container running. Predicted in DEPLOY-API-DESIGN.md
+        // (2026-04-15), hit during galerija-dusa Phase 1 deploy 2026-04-28.
+        [$up_out, , $up_exit] = pm_compose_exec($stack['path'], 'up -d --force-recreate', $name);
         echo json_encode([
             'success' => $up_exit === 0,
             'action'  => 'update',
